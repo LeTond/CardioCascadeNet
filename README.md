@@ -64,6 +64,8 @@ masks.
 ### Directories structure:
 
 Data directories should have a similar structure:
+
+	.
 	├── Dataset
 	|   ├── PROJ_NAME_origin
 	|   |   ├── image_01.nii
