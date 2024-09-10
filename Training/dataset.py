@@ -19,7 +19,7 @@ from multiprocessing import Pool, TimeoutError, current_process
 from Preprocessing.preprocessing import *
 from configuration import MetaParameters
 from Preprocessing.dirs_logs import *
-from Evaluation.evaluation import *
+from Inference.inference import *
 
 
 class GetData(MetaParameters):
@@ -120,11 +120,11 @@ class GetData(MetaParameters):
 
             if self.unet_type == 'cropp' or self.unet_type == 'close_cropp':
                 try:
-                    preseg = EvalPreprocessData(images, masks, None, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+                    preseg = CroppPreprocessData(images, masks, None, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
                     images = preseg[0]
                     masks = preseg[1]
                 except:
-                    print(f'Data EVAL Preprocessing Problem with {sub_name}')
+                    print(f'Data INFER Preprocessing Problem with {sub_name}')
 
             templates = images.copy()
 

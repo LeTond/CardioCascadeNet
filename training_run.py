@@ -62,11 +62,11 @@ class ChooseModelConfig(MetaParameters):
     def choose_train_model(self):
         if self.PRETRAIN:    
             try:
-                # checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
-                # checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.model_key}']
+                checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
+                checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.model_key}']
 
-                checkpoint = torch.load(f'./Results/ALMAZ/ALMAZ_model.pth')
-                checkpoint = checkpoint[f'Net_ALMAZ_{self.model_key}']
+                # checkpoint = torch.load(f'./Results/ALMAZ/ALMAZ_model.pth')
+                # checkpoint = checkpoint[f'Net_ALMAZ_{self.model_key}']
                 
                 model = checkpoint['Model']
                 model.load_state_dict(checkpoint['weights'])  
@@ -101,9 +101,10 @@ class ChooseModelConfig(MetaParameters):
         # optimizer = torch.optim.AdamW(model.parameters(), lr = meta.LR, weight_decay = meta.WDC)
         # optimizer = Lion(model.parameters(), lr = meta.LR, betas = (0.9, 0.99), weight_decay = meta.WDC)
         # optimizer = torch.optim.AdamW(model.parameters(), lr = learning_rate, weight_decay = wdc, amsgrad = False)
-        # optimizer = torch.optim.SGD(model.parameters(), lr = meta.LR, weight_decay = meta.WDC, momentum = 0.9, nesterov = True)
-        
-        optimizer = Ranger(self.model.parameters(), lr = self.LR, k = 6, N_sma_threshhold = 5, weight_decay = self.WDC)
+        # optimizer = torch.optim.SGD(model.parameters(), lr = meta.LR, weight_decay = meta.WDC, momentum = 0.9, nesterov = True)        
+        # optimizer = Ranger(self.model.parameters(), lr = self.LR, k = 6, N_sma_threshhold = 5, weight_decay = self.WDC)
+
+        optimizer = Ranger(filter(lambda x: x.requires_grad, self.model.parameters()),  lr = self.LR, k = 6, N_sma_threshhold = 5, weight_decay = self.WDC)
 
         return optimizer
 
@@ -130,10 +131,11 @@ class ChooseModelConfig(MetaParameters):
 if __name__ == '__main__':
     cmc = ChooseModelConfig()
     model = cmc.model
-    optimizer = cmc.optimizer
     scheduler_gen = cmc.scheduler_gen
+    optimizer = cmc.optimizer
 
     fdwr.create_dir_log(project_name = meta.PROJ_NAME)
+    
     ########################################################################################################################
     # Creating loaders for training and validating network
     ########################################################################################################################

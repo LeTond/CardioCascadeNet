@@ -63,7 +63,7 @@ class MetaParameters:
 
     # AUGMENTATION = False
     FREEZE_BN = False
-    PRETRAIN = False
+    # PRETRAIN = False
     NOISE = False
     EMPTY = False
     MULTYGAP = False
@@ -135,12 +135,6 @@ class MetaParameters:
     UNET3_FOLD = f'Unet3_Fold_{FOLD_NAME}/'
     UNET4_FOLD = f'Unet4_Fold_{FOLD_NAME}/'
     UNET5_FOLD = f'Unet5_Fold_{FOLD_NAME}/'
-
-    UNET1_EVAL_DIR = f'./Results/{UNET1_FOLD}'
-    UNET2_EVAL_DIR = f'./Results/{UNET2_FOLD}'
-    UNET3_EVAL_DIR = f'./Results/{UNET3_FOLD}'
-    UNET4_EVAL_DIR = f'./Results/{UNET4_FOLD}'
-    UNET5_EVAL_DIR = f'./Results/{UNET5_FOLD}'
 
     PROJ_NAME = f'./Results/{DATASET_NAME}'
 
@@ -257,10 +251,8 @@ class ChooseModelConfig(MetaParameters):
     def choose_model_key(self):
         if self.UNET3 is True:
             return self.UNET3_FOLD
-
         elif self.UNET2 is True and self.UNET3 is False:
             return self.UNET2_FOLD
-
         elif self.UNET2 is False and self.UNET3 is False:
             return self.UNET1_FOLD
 

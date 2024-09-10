@@ -59,7 +59,7 @@ class GetListImages(MetaParameters):
         elif self.UNET4 is True and self.UNET5 is False:
             return 'myo_level'
         elif self.UNET5 is True:
-            return 'eval_bull_level'
+            return 'infer_bull_level'
         else:
             return None
 
@@ -68,18 +68,18 @@ class GetListImages(MetaParameters):
         images = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
         orig_img_shape = images.shape
 
-        if self.mask_type == 'eval_bull_level' or self.mask_type == 'myo_level':
+        if self.mask_type == 'infer_bull_level' or self.mask_type == 'myo_level':
             masks = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
 
-        if self.mask_type == 'eval_bull_level':
+        if self.mask_type == 'infer_bull_level':
             templates = ReadImages(f'./Dataset/BULLEYE_Unet4_mask_new/{self.file_name}').view_matrix
             
             masks[masks <= 1] = 0
             masks[masks > 0] = 1            
-            masks = masks * templates
+            masks = masks * templates.copy()
 
         if masks is not None:
-            images, masks, self.def_coord = EvalPreprocessData(images, masks, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+            images, masks, self.def_coord = CroppPreprocessData(images, masks, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
         else:
             masks = np.zeros((images.shape))
 
@@ -109,7 +109,7 @@ class GetListImages(MetaParameters):
         orig_img_shape = images.shape
 
         if masks is not None:
-            images, masks, def_coord = EvalPreprocessData(images, masks, unet_type = self.unet_type).presegmentation_tissues(def_coord, self.cropp_gap)
+            images, masks, def_coord = InferPreprocessData(images, masks, unet_type = self.unet_type).presegmentation_tissues(def_coord, self.cropp_gap)
         else:
             masks = np.zeros((images.shape))
 
@@ -274,11 +274,11 @@ class PredictionMask(MetaParameters):
 
 
 class NiftiSaver(MetaParameters):
-    def __init__(self, masks_list, file_path, evaluate_directory):         
+    def __init__(self, masks_list, file_path, inference_directory):         
         super(MetaParameters, self).__init__()
 
         self.__masks_list = masks_list
-        self.__evaluate_directory = evaluate_directory
+        self.__inference_directory = inference_directory
         self.__file_name = file_path.split('/')[-1]
 
     @property
@@ -286,8 +286,8 @@ class NiftiSaver(MetaParameters):
         return self.__masks_list
 
     @property
-    def evaluate_directory(self):
-        return self.__evaluate_directory
+    def inference_directory(self):
+        return self.__inference_directory
 
     @property
     def file_name(self):
@@ -296,16 +296,16 @@ class NiftiSaver(MetaParameters):
     @property
     def save_nifti(self):
         new_image = nib.Nifti1Image(self.masks_list, affine = np.eye(4))
-        nib.save(new_image, f'{self.evaluate_directory}/{self.file_name}')
+        nib.save(new_image, f'{self.inference_directory}/{self.file_name}')
 
 
 class DicomSaver(MetaParameters):
-    def __init__(self, masks_list, file_path, evaluate_directory):         
+    def __init__(self, masks_list, file_path, inference_directory):         
         super(MetaParameters, self).__init__()
 
         self.masks_list = masks_list
         self.file_name = file_path
-        self.evaluate_directory = evaluate_directory
+        self.inference_directory = inference_directory
         self.orig_dir = self.NEW_DATA_PATH
 
     def old_dicom(self):
@@ -447,8 +447,8 @@ class DicomSaver(MetaParameters):
         # mask = self.masks_list[:,:,0].astype(np.float16)
         # old_dicom.PixelData = mask.tostring()
         new_dir_name = old_dicom.PatientName           
-        fdwr.create_dir(project_name = f'{self.evaluate_directory}/{new_dir_name}')
-        old_dicom.save_as(f'{self.evaluate_directory}/{new_dir_name}/{self.dicom_file_name()}')
+        fdwr.create_dir(project_name = f'{self.inference_directory}/{new_dir_name}')
+        old_dicom.save_as(f'{self.inference_directory}/{new_dir_name}/{self.dicom_file_name()}')
 
 
     def save_dicom_mask_3d(self):
@@ -457,8 +457,8 @@ class DicomSaver(MetaParameters):
         mask = mask.transpose(2, 1, 0)
         old_dicom.PixelData = mask.tostring()
         new_dir_name = old_dicom.PatientName           
-        fdwr.create_dir(project_name = f'{self.evaluate_directory}/{new_dir_name}')
-        old_dicom.save_as(f'{self.evaluate_directory}/{new_dir_name}/{self.dicom_file_name()}')
+        fdwr.create_dir(project_name = f'{self.inference_directory}/{new_dir_name}')
+        old_dicom.save_as(f'{self.inference_directory}/{new_dir_name}/{self.dicom_file_name()}')
 
 
     def save_dicom(self):
@@ -469,20 +469,20 @@ class DicomSaver(MetaParameters):
         old_dicom.PixelData = self.new_dicom_array().tostring()
 
         new_dir_name = old_dicom.PatientName
-        fdwr.create_dir(project_name = f'{self.evaluate_directory}/{new_dir_name}')
+        fdwr.create_dir(project_name = f'{self.inference_directory}/{new_dir_name}')
 
-        old_dicom.save_as(f'{self.evaluate_directory}/{new_dir_name}/{self.dicom_file_name()}')
+        old_dicom.save_as(f'{self.inference_directory}/{new_dir_name}/{self.dicom_file_name()}')
 
 
 class PdfSaver(MetaParameters):
-    def __init__(self, file_path, dataset_path, evaluate_directory):
+    def __init__(self, file_path, dataset_path, inference_directory):
         super(MetaParameters, self).__init__()
 
         self.dataset_path = dataset_path
-        self.evaluate_directory = evaluate_directory
+        self.inference_directory = inference_directory
         self.file_name = file_path.split('/')[-1]
         self.images_list = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
-        self.masks_list = ReadImages(f"{self.evaluate_directory}/{self.file_name}").view_matrix
+        self.masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
 
         # self.masks_list = ReadImages(f"./Dataset/ALMAZ_mask/{self.file_name}").view_matrix
         # self.fib_masks_list = ReadImages(f"/Users/aglevchuk/Documents/PycharmProjects/Unet_Cardiac/BullEyeMapUnet/Dataset/BULLEYE_Unet3_mask_new/{self.file_name}").view_matrix()
@@ -543,7 +543,7 @@ class PdfSaver(MetaParameters):
             volume_dict_class[f'Chunk_{self.DICT_CLASS[key]}'] = list(self.divide_chunks(volume_dict_class[f'Volume_{self.DICT_CLASS[key]}'], self.rows))
 
         num_chunk = len(chunk_list_images)
-        pp = PdfPages(f'{self.evaluate_directory}/{self.file_name}_results.pdf')
+        pp = PdfPages(f'{self.inference_directory}/{self.file_name}_results.pdf')
         
         for chunk in range(num_chunk):
             masks = chunk_list_masks[chunk]

@@ -338,22 +338,31 @@ class MaskPreprocessing(MetaParameters):
                 template[template != apex] = 4
 
         mask[mask > 0] = 1
+        
         template = template * mask / 4
-
-        return self.image, self.mask, template
+        image = image * (1 - mask)
+        
+        return image, self.mask, template
 
     @property
-    def eval_bull_level_preprocessing(self):
-        template = self.mask.copy() / 4
-        return self.image, self.mask, template
+    def infer_bull_level_preprocessing(self):
+        mask = self.mask.copy() / 4
+        image = self.image.copy()
+
+        template = mask.copy()
+        
+        mask[mask > 0] = 1
+        image = image * (1 - mask)
+
+        return image, self.mask, template
 
     @property
     def choose_mask_preprocessing(self):
         if self.mask_type == 'bull_level':
             return self.bull_level_preprocessing
 
-        elif self.mask_type == 'eval_bull_level':
-            return self.eval_bull_level_preprocessing
+        elif self.mask_type == 'infer_bull_level':
+            return self.infer_bull_level_preprocessing
 
         elif self.mask_type == 'myo_level':
             return self.myo_level_preprocessing
@@ -452,7 +461,7 @@ class Augmentation(ChooseKernelSize):
         return noisy_image
 
 
-class EvalPreprocessData(MetaParameters):
+class CroppPreprocessData(MetaParameters):
     def __init__(self, images = None, masks = None, templates = None, unet_type = None):
         super(MetaParameters, self).__init__()
         self.__images = images
