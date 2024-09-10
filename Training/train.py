@@ -9,7 +9,6 @@ GitHub: https://github.com/LeTond
 
 
 from configuration import *
-from parameters import MetaParameters
 from Validation.validation import DiceLoss
 from tqdm.notebook import tqdm
 
@@ -18,8 +17,7 @@ ds = DiceLoss()
 
 
 class TrainNetwork(MetaParameters):
-
-    def __init__(self, model, optimizer, loss_function, train_loader, valid_loader, meta, ds):         
+    def __init__(self, model, optimizer, loss_function, scheduler_gen, train_loader, valid_loader, meta, ds):         
         super(MetaParameters, self).__init__()
         self.ds = ds 
         self.model = model
@@ -27,15 +25,30 @@ class TrainNetwork(MetaParameters):
         self.loss_function = loss_function
         self.train_loader = train_loader
         self.valid_loader = valid_loader
+        self.scheduler_gen = scheduler_gen
+        self.print_model_key
 
-        if self.UNET3 is True:
-            self.model_key = self.UNET3_FOLD
-        
+    @property  
+    def choose_model_key(self):
+        if self.UNET5 is True:
+            return self.UNET5_FOLD
+        elif self.UNET5 is False and self.UNET4 is True:
+            return self.UNET4_FOLD
+        elif self.UNET3 is True and self.UNET5 is False and self.UNET4 is False:
+            return self.UNET3_FOLD
         elif self.UNET2 is True and self.UNET3 is False:
-            self.model_key = self.UNET2_FOLD
-
+            return self.UNET2_FOLD
         elif self.UNET2 is False and self.UNET3 is False:
-            self.model_key = self.UNET1_FOLD
+            return self.UNET1_FOLD
+        elif self.UNET2 is False and self.UNET3 is False:
+            return self.UNET1_FOLD
+
+    @property
+    def model_key(self):
+        return self.choose_model_key
+
+    def print_model_key(self):
+        print(f'Model KEY {model_key} Was Chosen')
 
     def get_metrics(self, loader_):
         self.model.eval()
@@ -67,6 +80,7 @@ class TrainNetwork(MetaParameters):
 
         for key in range(1, num_layers):
             dictionary[f'Dice_{self.DICT_CLASS[key]}'] /= num_batches
+        
         mean_loss = float((loss / num_batches))
 
         return mean_loss, dictionary
@@ -102,14 +116,14 @@ class TrainNetwork(MetaParameters):
                 self.optimizer.step()
 
             # with warmup_scheduler.dampening():
-                # scheduler_gen.step()
-            scheduler_gen.step() #g_mean_train_loss,  g_mean_valid_loss
+                # self.scheduler_gen.step()
+            self.scheduler_gen.step() #g_mean_train_loss,  g_mean_valid_loss
             
             training = self.get_metrics(self.train_loader)
             validating = self.get_metrics(self.valid_loader)
 
             # val_loss = validating[0]
-            # scheduler_gen.step(val_loss)
+            # self.scheduler_gen.step(val_loss)
 
             num_layers = len(self.DICT_CLASS)
             results += f'TRAIN: Loss = {round(training[0], 3)}'
@@ -119,7 +133,7 @@ class TrainNetwork(MetaParameters):
             for key in range(1, num_layers):
                 results += f' Dice_{self.DICT_CLASS[key]} = ' + str(round(validating[1].get(f'Dice_{self.DICT_CLASS[key]}'), 3))
             
-            log_stats(results, self.PROJ_NAME)
+            fdwr.log_stats(project_name = self.PROJ_NAME, results = results)
 
             if validating[0] > the_last_loss:
                 trigger_times += 1

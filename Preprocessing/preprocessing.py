@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1
-Date: 21-07-2024
+Version: 1.2
+Date: 03-09-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -30,11 +30,10 @@ import matplotlib.pyplot as plt
 from torch import nn
 from skimage.transform import resize, rescale, downscale_local_mean
 from scipy.ndimage import rotate as rotate_image
-# from matplotlib import pylab as plt
 from torch.utils.data import DataLoader
 from sklearn import preprocessing        #pip install scikit-learn
 from scipy import ndimage
-from parameters import MetaParameters
+from configuration import *
 
 
 class ReadImages():
@@ -93,16 +92,15 @@ class ReadImages():
         return list(self.get_file_list)
 
 
-class PreprocessData(MetaParameters):
+class PreprocessData(ChooseKernelSize):
     def __init__(self, image, mask = None, template = None, names = None, unet_type = None):    
-        super(MetaParameters, self).__init__()
+        # super(MetaParameters, self).__init__()
+        super().__init__()
         self.__image = image
         self.__mask = mask
         self.__template = template
         self.__names = names
         self.__unet_type = unet_type
-        self.__cropp_kernel_size = self.CROPP_KERNEL
-        self.__kernel_size = self.KERNEL
 
     @property
     def names(self):
@@ -123,29 +121,6 @@ class PreprocessData(MetaParameters):
     @property
     def template(self):
         return self.__template
-
-    @property
-    def kernel(self):
-        return self.__kernel_size
-    
-    @property
-    def cropp_kernel(self):
-        return self.__cropp_kernel_size
-
-    @property
-    def choose_kernel_size(self):
-        if self.unet_type == 'default':
-            return self.kernel
-        elif self.unet_type == 'cropp':
-            return self.cropp_kernel
-        elif self.unet_type == 'close_cropp':
-            return self.cropp_kernel
-        else:
-            return self.kernel
-
-    @property
-    def kernel_size(self):
-        return self.choose_kernel_size
 
     @property
     def preprocessing(self):
@@ -170,8 +145,8 @@ class PreprocessData(MetaParameters):
         if self.template is not None:
             template = np.array(self.template, dtype = np.float32)
             template = self.clipping(template)
-            template = self.z_normalization(template)
-            # template = self.hyst_normalization(template)
+            # template = self.z_normalization(template)
+            template = self.hyst_normalization(template)
             template = self.equalization_matrix(matrix = template)
             template = self.rescale_matrix(matrix = template, order = 0)
             template = np.array(template.reshape(self.kernel_size, self.kernel_size, 1), dtype = np.float32)
@@ -267,12 +242,12 @@ class PreprocessData(MetaParameters):
 
 
 class MaskPreprocessing(MetaParameters):
-    def __init__(self, image, mask = None, template = None, unet_type = None):    
+    def __init__(self, image, mask = None, template = None, mask_type = None):    
         super(MetaParameters, self).__init__()
         self.__image = image
         self.__mask = mask
         self.__template = template
-        self.__unet_type = unet_type
+        self.__mask_type = mask_type
 
     @property
     def image(self):
@@ -287,43 +262,24 @@ class MaskPreprocessing(MetaParameters):
         return self.__template
     
     @property
-    def unet_type(self):
-        return self.__unet_type
-
-    @property
-    def bull_eye_preprocessing(self):
-        mask = self.mask.copy()
-
-        for basal in range(1, 7):
-            if (self.template == basal).any():
-                mask[self.mask == 1] = 1
-        for medial in range(7, 13):
-            if (self.template == medial).any():
-                mask[mask == 1] = 2
-        for apical in range(13, 17):
-            if (self.template == apical).any():
-                mask[mask == 1] = 3
-        for apex in range(17, 18):
-            if (self.template == apex).any():
-                mask[mask == 1] = 4
-
-        return mask
+    def mask_type(self):
+        return self.__mask_type
 
     @property
     def lv_preprocessing(self):
-        if self.unet_type == 'bgcropp':
+        if self.mask_type == 'bgcropp':
             template = self.mask.copy()
             template[template != 0] = 1
             image = self.image.copy() * template
 
-        elif self.unet_type == 'lvcropp':
+        elif self.mask_type == 'lvcropp':
             template = self.mask.copy()
             template[template != 1] = 2
             template[template == 1] = 0
             template[template == 2] = 1
             image = self.image.copy() * template
 
-        elif self.unet_type == 'bglvcropp':
+        elif self.mask_type == 'bglvcropp':
             template = self.mask.copy()
             template[template == 1] = 0
             template[template != 0] = 1
@@ -333,18 +289,93 @@ class MaskPreprocessing(MetaParameters):
             image = self.image.copy()
             image = np.array(image.reshape(image.shape[0], image.shape[1], 1), dtype = np.float32)
         
-        return image
+        return image, self.mask, self.template
+
+    @property
+    def myo_level_preprocessing(self):
+        mask = self.mask.copy()
+        
+        for basal in range(1, 7):
+            if (mask == basal).any():
+                mask[mask == basal] = 1
+                mask[mask != basal] = 1
+        for medial in range(7, 13):
+            if (mask == medial).any():
+                mask[mask == medial] = 2
+                mask[mask != medial] = 2
+        for apical in range(13, 17):
+            if (mask == apical).any():
+                mask[mask == apical] = 3
+                mask[mask != apical] = 3
+        for apex in range(17, 18):
+            if (mask == apex).any():
+                mask[mask == apex] = 4
+                mask[mask != apex] = 4
+
+        return self.image, mask, self.template
+
+    @property
+    def bull_level_preprocessing(self):
+        image = self.image.copy()
+        template = self.mask.copy()
+        mask = self.mask.copy()
+
+        for basal in range(1, 7):
+            if (template == basal).any():
+                template[template == basal] = 1
+                template[template != basal] = 1
+        for medial in range(7, 13):
+            if (template == medial).any():
+                template[template == medial] = 2
+                template[template != medial] = 2
+        for apical in range(13, 17):
+            if (template == apical).any():
+                template[template == apical] = 3
+                template[template != apical] = 3
+        for apex in range(17, 18):
+            if (template == apex).any():
+                template[template == apex] = 4
+                template[template != apex] = 4
+
+        mask[mask > 0] = 1
+        template = template * mask / 4
+
+        return self.image, self.mask, template
+
+    @property
+    def eval_bull_level_preprocessing(self):
+        template = self.mask.copy() / 4
+        return self.image, self.mask, template
+
+    @property
+    def choose_mask_preprocessing(self):
+        if self.mask_type == 'bull_level':
+            return self.bull_level_preprocessing
+
+        elif self.mask_type == 'eval_bull_level':
+            return self.eval_bull_level_preprocessing
+
+        elif self.mask_type == 'myo_level':
+            return self.myo_level_preprocessing
+        
+        elif self.mask_type is None:
+            return self.image, self.mask, self.template
+        
+        else:
+            return self.lv_preprocessing
+
+    @property
+    def mask_preprocessing(self):
+        return self.choose_mask_preprocessing
 
 
-class Augmentation(MetaParameters):
+class Augmentation(ChooseKernelSize):
     def __init__(self, image, mask = None, template = None, unet_type = None):
-        super(MetaParameters, self).__init__()
+        super().__init__()
         self.__image = image
         self.__mask = mask
         self.__template = template
         self.__unet_type = unet_type
-        self.__cropp_kernel_size = self.CROPP_KERNEL
-        self.__kernel_size = self.KERNEL
 
     @property
     def unet_type(self):
@@ -361,25 +392,6 @@ class Augmentation(MetaParameters):
     @property
     def template(self):
         return self.__template
-
-    @property
-    def kernel(self):
-        return self.__kernel_size
-    
-    @property
-    def cropp_kernel(self):
-        return self.__cropp_kernel_size
-
-    @property
-    def choose_kernel_size(self):
-        if self.unet_type == 'default':
-            return self.kernel
-        elif self.unet_type == 'cropp':
-            return self.cropp_kernel
-        elif self.unet_type == 'close_cropp':
-            return self.cropp_kernel
-        else:
-            return self.kernel
 
     @property
     def kernel_size(self):

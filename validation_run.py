@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1
-Date: 21-07-2024
+Version: 1.1
+Date: 03-09-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -10,13 +10,11 @@ GitHub: https://github.com/LeTond
 
 from configuration import *
 from Validation.validation import *
-
 from Training.dataset import *
 from Preprocessing.split_dataset import *
 
 
 class PlotResults(MetaParameters):
-
     def __init__(self):         
         super(MetaParameters, self).__init__()
 
@@ -27,18 +25,14 @@ class PlotResults(MetaParameters):
 
         self.dict_class_stats = self.create_dict_class()
 
-    def data_loader(self, data_list, kernel_sz, augmentation=False):
-        getds = GetData(data_list, augmentation).generated_data_list()
-        getds_origin = getds[0]
-        getds_mask = getds[1]
-        getds_template = getds[2]
-        getds_names = getds[3]
+    def data_loader(self, data_list, kernel_sz, augmentation = False):
+        getds_origin, getds_mask, getds_template, getds_names = GetData(data_list, augmentation).generated_data_list
         data_set = MyDataset(self.NUM_CLASS, getds_origin, getds_mask, getds_template, getds_names, kernel_sz, default_transform)
         
         # print(f'Test size: {len(data_set)}')
 
         data_batch_size = len(data_set)
-        data_loader = DataLoader(data_set, data_batch_size, drop_last=True, shuffle=False, pin_memory=True)
+        data_loader = DataLoader(data_set, data_batch_size, drop_last = True, shuffle = False, pin_memory = True)
 
         return data_loader
 

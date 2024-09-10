@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1
-Date: 21-07-2024
+Version: 1.2
+Date: 03-09-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -13,48 +13,46 @@ import numpy as np
 import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
 
-
 from torch.utils.data import Dataset
-# from configuration import *
 from multiprocessing import Pool, TimeoutError, current_process
 
-
-from Preprocessing.preprocessing import ReadImages, PreprocessData, EvalPreprocessData
-from parameters import *
-# from configuration import *
-from parameters import MetaParameters
+from Preprocessing.preprocessing import *
+from configuration import MetaParameters
 from Preprocessing.dirs_logs import *
 from Evaluation.evaluation import *
 
 
 class GetData(MetaParameters):
-    def __init__(self, files = None, augmentation = None): 
+    def __init__(self, files = None, augmentation = None):
         super(MetaParameters, self).__init__()
         self.files = files
         self.augmentation = augmentation
 
     @property
     def unet_type(self):
-        if self.UNET3 is True:
+        if self.UNET5 is True:
+            return 'cropp'
+        elif self.UNET4 is True and self.UNET5 is False:
+            return 'cropp'
+        elif self.UNET3 is True and self.UNET4 is False and self.UNET5 is False:
             return 'close_cropp'
-        
         elif self.UNET3 is False and self.UNET2 is True:
             return 'cropp'
-        
         elif self.UNET2 is False and self.UNET3 is False:
             return 'default'
 
     @property
-    def lv_cropp_type(self):
+    def mask_type(self):
         if self.BGCROPP is True:
             return 'bgcrop'
-
         elif self.LVCROPP is True:
             return 'lvcropp'
-
         elif self.BGLVCROPP is True:
             return 'bglvcropp'
-
+        elif self.UNET4 is True and self.UNET5 is False:
+            return 'myo_level'
+        elif self.UNET5 is True:
+            return 'bull_level'
         else:
             return None
 
@@ -117,17 +115,14 @@ class GetData(MetaParameters):
         if file_name.endswith('.nii'):
             images = ReadImages(f"{self.ORIGS_DIR}/{file_name}").view_matrix
             masks = ReadImages(f"{self.MASKS_DIR}/{file_name}").view_matrix
-            # templates = ReadImages(f"{self.ORIGS_DIR}/{file_name}").view_matrix
-            # bull_templs = ReadImages(f"./Dataset/BULLEYE_mask/{file_name}").view_matrix
 
             sub_name = file_name.replace('.nii', '')
 
-            if self.UNET2 is True or self.UNET3 is True:
+            if self.unet_type == 'cropp' or self.unet_type == 'close_cropp':
                 try:
-                    preseg = EvalPreprocessData(images, masks, templates = None, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+                    preseg = EvalPreprocessData(images, masks, None, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
                     images = preseg[0]
                     masks = preseg[1]
-
                 except:
                     print(f'Data EVAL Preprocessing Problem with {sub_name}')
 
@@ -138,25 +133,23 @@ class GetData(MetaParameters):
                 mask = masks[:, :, slc]
                 template = templates[:, :, slc]
 
-                # template = bull_templs[:, :, slc]                
-                # mask = MaskPreprocessing(image, mask, template, 'default').bull_eye_preprocessing
-
-                if self.check_mask(mask, sub_name, slc):
-                    try:
-                        image, mask, template = Augmentation(image, mask, template = template, unet_type = self.unet_type).rotate_2d
-                    except:
-                        print(f'Data Augmentation Problem with {sub_name}')
+                try:
+                    image, mask, template = Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
+                except:
+                    print(f'Data Augmentation Problem with {sub_name}')
+            
+                try:
+                    image, mask, template = PreprocessData(image, mask, template, unet_type = self.unet_type).preprocessing
+                except:
+                    print(f'Data Preprocessing Problem with {sub_name}')
                 
-                    try:
-                        image, mask, template = PreprocessData(image, mask, template = template, unet_type = self.unet_type).preprocessing
-                    except:
-                        print(f'Data Preprocessing Problem with {sub_name}')
-                    
-                    try:
-                        image = MaskPreprocessing(image, mask, template = template, unet_type = self.lv_cropp_type).lv_preprocessing
-                    except:
-                        print(f'Data MaskPreprocessing Problem with {sub_name}')
-                    
+                try:
+                    image, mask, template = MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
+
+                except:
+                    print(f'Data MaskPreprocessing Problem with {sub_name}')
+
+                if self.check_mask(mask, sub_name, slc):    
                     list_images.append(image)
                     list_masks.append(mask)
                     list_templates.append(template)
@@ -164,6 +157,7 @@ class GetData(MetaParameters):
 
         return list_images, list_masks, list_templates, list_names
 
+    @property
     def generated_data_list(self):
         list_images, list_masks, list_templates, list_names = [], [], [], []
 
@@ -178,7 +172,7 @@ class GetData(MetaParameters):
             except:
                 pass 
 
-        if self.AUGMENTATION:
+        if self.AUGMENTATION and self.augmentation:
             for subject in self.files:
                 try:
                     images, masks, templates, sub_names = self.pool_worker(subject)
@@ -212,16 +206,16 @@ class GetData(MetaParameters):
         return list_images, list_masks, list_templates, list_names
 
 
-class MyDataset(Dataset):
-    def __init__(self, num_class, ds_images, ds_masks, ds_templates, ds_names, kernel_sz, transform = None, images_and_labels = []):
+class MyDataset(Dataset, ChooseKernelSize):
+    def __init__(self, ds_images, ds_masks, ds_templates, ds_names, transform = None, images_and_labels = []):
+        super().__init__()
+
         self.transform = transform
         self.images_and_labels = images_and_labels
         self.images = ds_images
         self.masks = ds_masks
         self.templates = ds_templates
         self.names = ds_names
-        self.kernel_sz = kernel_sz
-        self.num_class = num_class
 
         for i in range(len(self.images)):
             self.images_and_labels.append((i, i, i, i))
@@ -230,7 +224,7 @@ class MyDataset(Dataset):
         image = TF.to_pil_image(image)
         image = TF.pil_to_tensor(image)
 
-        mask = mask / self.num_class
+        mask = mask / self.NUM_CLASS
         mask = TF.to_pil_image(mask)
         mask = TF.pil_to_tensor(mask)
 
@@ -240,11 +234,11 @@ class MyDataset(Dataset):
         tcat = torch.cat((image, mask, template), 0)
         image, mask, template = self.transform(tcat)
 
-        image = np.array(image.reshape(self.kernel_sz, self.kernel_sz, 1), dtype = np.float32)
-        mask = np.array(mask.reshape(self.kernel_sz, self.kernel_sz, 1), dtype = np.float32)
-        template = np.array(template.reshape(self.kernel_sz, self.kernel_sz, 1), dtype = np.float32)
+        image = np.array(image.reshape(self.kernel_size, self.kernel_size, 1), dtype = np.float32)
+        mask = np.array(mask.reshape(self.kernel_size, self.kernel_size, 1), dtype = np.float32)
+        template = np.array(template.reshape(self.kernel_size, self.kernel_size, 1), dtype = np.float32)
 
-        mask = np.round(mask * self.num_class)
+        mask = np.round(mask * self.NUM_CLASS)
         
         return image, mask, template
         
@@ -259,9 +253,9 @@ class MyDataset(Dataset):
 
         image = np.array([image, template], dtype = np.float32)[:, :, :, 0]
 
-        mask = np.resize(mask, (self.kernel_sz, self.kernel_sz))
+        mask = np.resize(mask, (self.kernel_size, self.kernel_size))
         mask = np.array(mask, dtype = np.int8)
-        mask = np.eye(self.num_class)[mask]
+        mask = np.eye(self.NUM_CLASS)[mask]
         mask = np.array(mask, dtype = np.float32)
         mask = mask.transpose(2, 0, 1)
 

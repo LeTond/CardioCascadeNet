@@ -8,8 +8,13 @@ GitHub: https://github.com/LeTond
 """
 
 
-from parameters import MetaParameters
+from configuration import MetaParameters
 from Preprocessing.preprocessing import ReadImages
+from scipy.ndimage import _ni_support
+from scipy.spatial.distance import directed_hausdorff
+from medpy import metric
+from scipy.ndimage.morphology import distance_transform_edt, binary_erosion, generate_binary_structure
+# from sklearn.metrics import confusion_matrix
 
 import numpy as np
 import nibabel as nib
@@ -17,14 +22,6 @@ import pandas as pd
 
 import numpy
 
-
-# from sklearn.metrics import confusion_matrix
-from scipy.spatial.distance import directed_hausdorff
-from medpy import metric
-from scipy.ndimage.morphology import distance_transform_edt, binary_erosion, generate_binary_structure
-
-
-from scipy.ndimage import _ni_support
 
 
 class CompareMatrix(MetaParameters):
@@ -80,16 +77,16 @@ class CompareMatrix(MetaParameters):
             self.GT = self.label[:, :, slc].sum()
             self.CM = self.prediction[:, :, slc].sum()
 
-            if self.GT == 0:
-                pass
-            else:
-                self.TP = (self.label[:, :, slc] * self.prediction[:, :, slc]).sum()
-                self.FN = np.abs(self.GT - self.TP)
-                self.FP = np.abs(self.CM - self.TP)
-                
-                # print(f'{self.sub_name()}: FN pixels {self.FN}, FP pixels {self.FP}, TP pixels: {self.TP}')
-                # print(f'{self.sub_name()} Slice: {self.length - slc} Dice = {self.dice()}')
-                list_dsc.append(self.dice())
+            # if self.GT == 0:
+            #     pass
+            # else:
+            self.TP = (self.label[:, :, slc] * self.prediction[:, :, slc]).sum()
+            self.FN = np.abs(self.GT - self.TP)
+            self.FP = np.abs(self.CM - self.TP)
+        
+            # print(f'{self.sub_name()}: FN pixels {self.FN}, FP pixels {self.FP}, TP pixels: {self.TP}')
+            # print(f'{self.sub_name()} Slice: {self.length - slc} Dice = {self.dice()}')
+            list_dsc.append(self.dice())
 
         # print(f"Sub {self.sub_name()}: {list_dsc}")
 
@@ -263,7 +260,8 @@ class CompareMatrix(MetaParameters):
                 )
 
     def print(self):
-        print(f"Statistics was counted for {self.DICT_CLASS[self.layer]} tissue")
+        ...
+        # print(f"Statistics was counted for {self.DICT_CLASS[self.layer]} tissue")
         # print(
         #     f'{self.sub_name()}: '
         #     f' Mean Dice = {self.dice()}, '

@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1
-Date: 21-07-2024
+Version: 1.1
+Date: 03-09-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -25,16 +25,109 @@ from skimage.transform import resize, rescale       #pip install scikit-image
 from skimage.transform import resize, rescale, downscale_local_mean
 
 from Model.unet2D import UNet_2D, UNet_2D_AttantionLayer
-from parameters import *
 from Preprocessing.preprocessing import *
-from Preprocessing.dirs_logs import create_dir
+# from Preprocessing.dirs_logs import create_dir
+# from Preprocessing.dirs_logs import FileDirectoryWorker
+
 from Postprocessing.postprocessing import *
 from configuration import *
 
-  
-class PredictionMask(MetaParameters):
-    def __init__(self, model, kernel_sz: int, images, templates, image_shp, def_coord):
+
+class GetListImages(MetaParameters):
+    def __init__(self, file_path, path_to_data, dataset_path, unet_type = None):
         super(MetaParameters, self).__init__()
+        self.file_path = file_path
+        self.file_name = file_path.split('/')[-1]
+        self.path_to_data = path_to_data
+        self.dataset_path = dataset_path
+        self.def_coord = None
+        self.__unet_type = unet_type
+        self.cropp_gap = 8
+    
+    @property
+    def unet_type(self):
+        return self.__unet_type
+
+    @property
+    def mask_type(self):
+        if self.BGCROPP is True:
+            return 'bgcrop'
+        elif self.LVCROPP is True:
+            return 'lvcropp'
+        elif self.BGLVCROPP is True:
+            return 'bglvcropp'
+        elif self.UNET4 is True and self.UNET5 is False:
+            return 'myo_level'
+        elif self.UNET5 is True:
+            return 'eval_bull_level'
+        else:
+            return None
+
+    def nifti_list(self, masks):
+        list_images, list_templates = [], []
+        images = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
+        orig_img_shape = images.shape
+
+        if self.mask_type == 'eval_bull_level' or self.mask_type == 'myo_level':
+            masks = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
+
+        if self.mask_type == 'eval_bull_level':
+            templates = ReadImages(f'./Dataset/BULLEYE_Unet4_mask_new/{self.file_name}').view_matrix
+            
+            masks[masks <= 1] = 0
+            masks[masks > 0] = 1            
+            masks = masks * templates
+
+        if masks is not None:
+            images, masks, self.def_coord = EvalPreprocessData(images, masks, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+        else:
+            masks = np.zeros((images.shape))
+
+        templates = images.copy()
+
+        for slc in range(images.shape[2]):
+            image, mask, template = PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], unet_type = self.unet_type).preprocessing
+            image, mask, template = MaskPreprocessing(image, mask = mask, template = template, mask_type = self.mask_type).mask_preprocessing
+
+            list_images.append(image)
+            list_templates.append(template)
+
+        return list_images, list_templates, orig_img_shape, self.def_coord
+
+    @staticmethod
+    def old_dicom(file_path):
+        old_dicom = dicom.dcmread(file_path)
+        old_dicom = old_dicom.PatientName
+
+        return old_dicom
+
+    def dicom_array(self, def_coord = None, masks = None):
+        list_images = []
+        list_templates = []
+        folder_name = self.old_dicom(self.file_path)
+        images = ReadImages(f"{self.file_path}").get_dcm()
+        orig_img_shape = images.shape
+
+        if masks is not None:
+            images, masks, def_coord = EvalPreprocessData(images, masks, unet_type = self.unet_type).presegmentation_tissues(def_coord, self.cropp_gap)
+        else:
+            masks = np.zeros((images.shape))
+
+        templates = images.copy()
+
+        for slc in range(images.shape[2]):
+            image, mask, template = PreprocessData(images[:, :, slc], mask = None, template = templates[:, :, slc], unet_type = self.unet_type).preprocessing
+            image, mask, template = MaskPreprocessing(image, mask = mask, template = template, mask_type = self.mask_type).mask_preprocessing
+
+            list_images.append(image)
+            list_templates.append(template)
+            
+        return list_images, list_templates, orig_img_shape, def_coord
+
+
+class PredictionMask(MetaParameters):
+    def __init__(self, model, images, templates, image_shp, def_coord, unet_type):
+        super().__init__()
 
         self.__model = model
         self.__device = device
@@ -42,7 +135,8 @@ class PredictionMask(MetaParameters):
         self.__image_shp = image_shp
         self.__templates = templates
         self.__def_coord = def_coord
-        self.__kernel_sz = kernel_sz
+        self.__unet_type = unet_type
+        self.kernel_size = ChooseKernelSize(self.unet_type).kernel_size
 
     @property
     def model(self):
@@ -69,8 +163,8 @@ class PredictionMask(MetaParameters):
         return self.__def_coord
 
     @property
-    def kernel_sz(self):
-        return self.__kernel_sz
+    def unet_type(self):
+        return self.__unet_type
 
     def expand_matrix(self, mask, row_img, column_img):
         new_matrix = np.zeros((row_img, column_img))
@@ -115,46 +209,54 @@ class PredictionMask(MetaParameters):
             image = np.array([image, template], dtype = np.float32)[:, :, :, 0]
 
             predict, image = self.predict(image)
-            predict = np.reshape(predict, (self.kernel_sz, self.kernel_sz))
+            predict = np.reshape(predict, (self.kernel_size, self.kernel_size))
             predict = np.array(predict, dtype = np.float32)
 
-            # if self.UNET1 is True and self.UNET2 is False:
-            #     try: 
-            #         unique, counts = np.unique(predict, return_counts=True)
-            #         test_dict = dict(zip(unique, counts))
-            #         myo_level = int(list(test_dict.keys())[0])
-
-            #         if myo_level != 0:
-            #             predict[predict != 0] = myo_level
-            #         else:
-            #             myo_level = int(list(test_dict.keys())[1])
-            #             predict[predict != 0] = myo_level
-            #     except:
-            #         pass
-
-            ## Add threshold of significance
-            ################################################################################
-            try:
-                if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
-                    pred_fib = predict[predict == 3]            
-                    pred_myo = predict[predict == 2]
-                    rel_volume = (pred_fib.sum().item() + smooth) / (pred_fib.sum().item() + pred_myo.sum().item() + smooth) * 100
-                    
-                    if rel_volume < 2 and (predict == 3).sum().item() > 0:
-                        predict[predict == 3] = 2
-            except:
-                pass
-            ################################################################################
-
+            predict = self.threshhold_myo_level(predict)
+            predict = self.threshhold_prediction(predict)
             predict = self.expand_matrix(predict, self.image_shp[0], self.image_shp[1])
             predict = resize(predict, (self.image_shp[0], self.image_shp[1]), anti_aliasing_sigma = False)
+
             mask_list.append(predict)
 
         mask_list = self.postprocess_matrix(mask_list)
-        mask_list = np.round(mask_list)
 
         return mask_list
 
+    def threshhold_myo_level(self, predict):
+        predict = np.round(predict)
+
+        if self.UNET4 is True and self.UNET5 is False:
+            try: 
+                unique, counts = np.unique(predict, return_counts = True)
+                test_dict = dict(zip(unique, counts))
+                myo_level = int(list(test_dict.keys())[0])
+
+                if myo_level != 0:
+                    predict[predict != 0] = myo_level
+                else:
+                    myo_level = int(list(test_dict.keys())[1])
+                    predict[predict != 0] = myo_level
+
+            except:
+                pass
+
+        return predict
+
+    def threshhold_prediction(self, predict):
+        try:
+            if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
+                pred_fib = predict[predict == 3]            
+                pred_myo = predict[predict == 2]
+                rel_volume = (pred_fib.sum().item() + smooth) / (pred_fib.sum().item() + pred_myo.sum().item() + smooth) * 100
+                
+                if rel_volume < 2 and (predict == 3).sum().item() > 0:
+                    predict[predict == 3] = 2
+        except:
+            pass
+
+        return predict
+        
     @staticmethod
     def postprocess_matrix(mask_list):
         shp = list(mask_list[0].shape)
@@ -175,26 +277,26 @@ class NiftiSaver(MetaParameters):
     def __init__(self, masks_list, file_path, evaluate_directory):         
         super(MetaParameters, self).__init__()
 
-        self._masks_list = masks_list
-        self._evaluate_directory = evaluate_directory
-        self._file_name = file_path.split('/')[-1]
+        self.__masks_list = masks_list
+        self.__evaluate_directory = evaluate_directory
+        self.__file_name = file_path.split('/')[-1]
+
+    @property
+    def masks_list(self):
+        return self.__masks_list
+
+    @property
+    def evaluate_directory(self):
+        return self.__evaluate_directory
+
+    @property
+    def file_name(self):
+        return self.__file_name
 
     @property
     def save_nifti(self):
         new_image = nib.Nifti1Image(self.masks_list, affine = np.eye(4))
         nib.save(new_image, f'{self.evaluate_directory}/{self.file_name}')
-
-    @property
-    def masks_list(self):
-        return self._masks_list
-
-    @property
-    def evaluate_directory(self):
-        return self._evaluate_directory
-
-    @property
-    def file_name(self):
-        return self._file_name
 
 
 class DicomSaver(MetaParameters):
@@ -329,7 +431,6 @@ class DicomSaver(MetaParameters):
         
         return new_file_name
 
-
     def save_dicom_mask(self):
         old_dicom = self.change_name(self.old_dicom())
         
@@ -346,7 +447,7 @@ class DicomSaver(MetaParameters):
         # mask = self.masks_list[:,:,0].astype(np.float16)
         # old_dicom.PixelData = mask.tostring()
         new_dir_name = old_dicom.PatientName           
-        create_dir(f'{self.evaluate_directory}/{new_dir_name}')
+        fdwr.create_dir(project_name = f'{self.evaluate_directory}/{new_dir_name}')
         old_dicom.save_as(f'{self.evaluate_directory}/{new_dir_name}/{self.dicom_file_name()}')
 
 
@@ -356,7 +457,7 @@ class DicomSaver(MetaParameters):
         mask = mask.transpose(2, 1, 0)
         old_dicom.PixelData = mask.tostring()
         new_dir_name = old_dicom.PatientName           
-        create_dir(f'{self.evaluate_directory}/{new_dir_name}')
+        fdwr.create_dir(project_name = f'{self.evaluate_directory}/{new_dir_name}')
         old_dicom.save_as(f'{self.evaluate_directory}/{new_dir_name}/{self.dicom_file_name()}')
 
 
@@ -368,7 +469,7 @@ class DicomSaver(MetaParameters):
         old_dicom.PixelData = self.new_dicom_array().tostring()
 
         new_dir_name = old_dicom.PatientName
-        create_dir(f'{self.evaluate_directory}/{new_dir_name}')
+        fdwr.create_dir(project_name = f'{self.evaluate_directory}/{new_dir_name}')
 
         old_dicom.save_as(f'{self.evaluate_directory}/{new_dir_name}/{self.dicom_file_name()}')
 
@@ -382,9 +483,15 @@ class PdfSaver(MetaParameters):
         self.file_name = file_path.split('/')[-1]
         self.images_list = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
         self.masks_list = ReadImages(f"{self.evaluate_directory}/{self.file_name}").view_matrix
+
         # self.masks_list = ReadImages(f"./Dataset/ALMAZ_mask/{self.file_name}").view_matrix
+        # self.fib_masks_list = ReadImages(f"/Users/aglevchuk/Documents/PycharmProjects/Unet_Cardiac/BullEyeMapUnet/Dataset/BULLEYE_Unet3_mask_new/{self.file_name}").view_matrix()
+        # self.fib_masks_list = ReadImages(f"/Users/aglevchuk/Documents/PycharmProjects/Unet_Cardiac/BullEyeMapUnet/Dataset/HCM_adult_Unet3_mask_new/{self.file_name}").view_matrix()
+
         self.images_list = self.images_list.transpose(2, 0, 1)
         self.masks_list = self.masks_list.transpose(2, 0, 1)
+        # self.fib_masks_list = self.fib_masks_list.transpose(2, 0, 1)
+
         self.smooth = 1e-5
         self.rows = 3
 
@@ -430,6 +537,7 @@ class PdfSaver(MetaParameters):
         num_chunk = len(self.images_list) % self.rows
         chunk_list_masks = list(self.divide_chunks(self.masks_list, self.rows))
         chunk_list_images = list(self.divide_chunks(self.images_list, self.rows))
+        # chunk_list_fib_masks = list(self.divide_chunks(self.fib_masks_list, self.rows))
 
         for key in range(1, self.NUM_CLASS): 
             volume_dict_class[f'Chunk_{self.DICT_CLASS[key]}'] = list(self.divide_chunks(volume_dict_class[f'Volume_{self.DICT_CLASS[key]}'], self.rows))
@@ -439,11 +547,13 @@ class PdfSaver(MetaParameters):
         
         for chunk in range(num_chunk):
             masks = chunk_list_masks[chunk]
-            images = chunk_list_images[chunk]
-      
+            images = chunk_list_images[chunk]            
+            # fib_masks = chunk_list_fib_masks[chunk]
+
             len_chunk = len(masks)
             
-            masks[masks == 1] = 0
+            # masks[masks == 1] = 0
+            # fib_masks[fib_masks==1] = 0
 
             if len_chunk > 1:
                 figure, ax = plt.subplots(nrows = len_chunk, ncols = 2, figsize = (12, 12))
@@ -451,15 +561,18 @@ class PdfSaver(MetaParameters):
                 colormap.set_under('k', alpha = .5)
 
                 bbox = dict(boxstyle = "round", fc = "0.8")
-                arrowprops = dict(arrowstyle = "->", connectionstyle = "angle,angleA=0,angleB=90,rad=10")
+                arrowprops = dict(arrowstyle = "->", connectionstyle = "angle, angleA = 0, angleB = 90,rad = 10")
 
                 for i in range(len_chunk):
                     mask_i  = np.flip(masks[i], (1))
                     image_i = np.flip(images[i], (1))
+                    # fib_mask_i  = np.flip(fib_masks[i], (1))
+                    
                     mask_i = np.rot90(mask_i, k = 1, axes = (0, 1))
                     image_i = np.rot90(image_i, k = 1, axes = (0, 1))
+                    # fib_mask_i = np.rot90(fib_mask_i, k = 1, axes = (0, 1))
 
-                    for clss in range(self.NUM_CLASS + 1):
+                    for clss in range(self.NUM_CLASS):
                         if mask_i[mask_i == clss].sum().item() > 3:
                             mark_mask = mask_i.copy()
                             mark_mask[mark_mask != clss] = 0
@@ -476,13 +589,19 @@ class PdfSaver(MetaParameters):
                             ax[i, 1].plot([weight_mass_x], [weight_mass_y],  marker = ".", color = 'orange')
 
                     for key in range(1, self.NUM_CLASS): 
-                        mask_i[0][key-1] = key
+                        mask_i[0][key - 1] = key
+                    # for fkey in range(4):
+                    #     fib_mask_i[0][fkey - 1] = fkey
 
                     ax[i, 0].imshow(image_i, plt.get_cmap('gray'))
+
                     ax[i, 1].imshow(image_i, plt.get_cmap('gray'))
                     ax[i, 1].imshow(mask_i, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
                     ax[i, 1].contour(mask_i, alpha = 0.5)
-                                        
+
+                    # ax[i, 2].imshow(image_i, plt.get_cmap('gray'))
+                    # ax[i, 2].imshow(fib_mask_i, alpha = 0.7, interpolation = None, cmap = colormap,  vmin = 0.5)
+
                     report_title = ''
                     
                     ################################################################################
@@ -518,10 +637,13 @@ class PdfSaver(MetaParameters):
 
                 mask_0  = np.flip(masks[0], (1))
                 image_0 = np.flip(images[0], (1))
+                # fib_mask_0  = np.flip(fib_masks[0], (1))
+
                 mask_0 = np.rot90(mask_0, k = 1, axes = (0, 1))
                 image_0 = np.rot90(image_0, k = 1, axes = (0, 1))
+                # fib_mask_0 = np.rot90(fib_mask_0, k = 1, axes = (0, 1))
 
-                for clss in range(self.NUM_CLASS + 1):
+                for clss in range(self.NUM_CLASS):
                     if mask_0[mask_0 == clss].sum().item() > 3:
                         mark_mask = mask_0.copy()
                         mark_mask[mark_mask != clss] = 0
@@ -539,12 +661,18 @@ class PdfSaver(MetaParameters):
 
                 for key in range(1, self.NUM_CLASS): 
                     mask_0[0][key - 1] = key
-                
+                # for fkey in range(4):
+                #     fib_mask_0[0][fkey - 1] = fkey
+
                 ax[0].imshow(image_0, plt.get_cmap('gray'))
+
                 ax[1].imshow(image_0, plt.get_cmap('gray'))
                 ax[1].imshow(mask_0, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
                 ax[1].contour(mask_0, alpha = 0.5)
                 
+                # ax[2].imshow(image_0, plt.get_cmap('gray'))
+                # ax[2].imshow(fib_mask_0, alpha = 0.7, interpolation = None, cmap = colormap,  vmin = 0.5)
+
                 report_title = ''
 
                 ################################################################################
@@ -594,121 +722,15 @@ class PdfSaver(MetaParameters):
         pp.close()
 
 
-class GetListImages(MetaParameters):
-    def __init__(self, file_path, path_to_data, dataset_path, unet_type = None):
-        super(MetaParameters, self).__init__()
-        self.file_path = file_path
-        self.file_name = file_path.split('/')[-1]
-        self.path_to_data = path_to_data
-        self.dataset_path = dataset_path
-        self.def_coord = None
-        self.__unet_type = unet_type
-        self.__cropp_kernel_size = self.CROPP_KERNEL
-        self.__kernel_size = self.KERNEL
-
-    @property
-    def kernel(self):
-        return self.__kernel_size
-    
-    @property
-    def cropp_kernel(self):
-        return self.__cropp_kernel_size
-
-    @property
-    def choose_kernel_size(self):
-        if self.unet_type == 'default':
-            return self.kernel
-        elif self.unet_type == 'cropp':
-            return self.cropp_kernel
-        elif self.unet_type == 'close_cropp':
-            return self.cropp_kernel
-        else:
-            return self.kernel
-
-    @property
-    def kernel_size(self):
-        return self.choose_kernel_size
-
-    @property
-    def unet_type(self):
-        return self.__unet_type
-
-    @property
-    def lv_cropp_type(self):
-        if self.BGCROPP is True:
-            return 'bgcrop'
-
-        elif self.LVCROPP is True:
-            return 'lvcropp'
-
-        elif self.BGLVCROPP is True:
-            return 'bglvcropp'
-
-        else:
-            return None
-
-    def nifti_list(self, masks_list):
-        list_images, list_templates = [], []
-        images = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
-        orig_img_shape = images.shape
-        # masks_list = ReadImages(f"{self.path_to_data}{self.file_name}").view_matrix
-        masks = ReadImages(f"{self.path_to_data}{self.file_name}").view_matrix
-
-        if masks_list is not None:
-            # masks = ReadImages(f"{self.path_to_data}{self.file_name}").view_matrix
-            # masks = masks_list
-            # images, masks, self.def_coord = EvalPreprocessData(images, masks_list, unet_type = self.unet_type).presegmentation_tissues(None, 8)
-            images, masks, self.def_coord = EvalPreprocessData(images, masks, unet_type = self.unet_type).presegmentation_tissues(None, 8)
-
-        templates = images.copy()
-
-        for slc in range(images.shape[2]):
-            image, mask, template = PreprocessData(images[:, :, slc], mask = masks[:, :, slc], template = templates[:, :, slc], unet_type = self.unet_type).preprocessing
-
-            image = MaskPreprocessing(image, mask = mask, template = template, unet_type = self.lv_cropp_type).lv_preprocessing
-
-            list_images.append(image)
-            list_templates.append(template)
-
-        return list_images, list_templates, orig_img_shape, self.def_coord
-
-    @staticmethod
-    def old_dicom(file_path):
-        old_dicom = dicom.dcmread(file_path)
-        old_dicom = old_dicom.PatientName
-
-        return old_dicom
-
-    def dicom_array(self, kernel_sz, def_coord, masks_list):
-        list_images = []
-        folder_name = self.old_dicom(self.file_path)
-        images = ReadImages(f"{self.file_path}").get_dcm()
-        orig_img_shape = images.shape
-
-        if self.preseg1:
-            # masks = ReadImages(f"{self.path_to_data}{folder_name}/{self.file_name}").get_dcm()
-            masks = masks_list
-            images, masks, def_coord = EvalPreprocessData(images, masks).presegmentation_tissues(def_coord, 8)
-
-        elif self.preseg2:
-            # masks = ReadImages(f"{self.path_to_data}{folder_name}/{self.file_name}").get_dcm()
-            masks = masks_list
-            images, masks, def_coord = EvalPreprocessData(images, masks).presegmentation_tissues(def_coord, 8, close_crop=True)
-
-        for slc in range(images.shape[2]):
-            normalized = PreprocessData(images[:, :, slc], mask = None).preprocessing(kernel_sz)[0]
-            list_images.append(normalized)
-            
-        return list_images, orig_img_shape, def_coord
 
 
-# def benchmark(func):
-#     def wrapper():
-#         start = time.time()
-#         func()
-#         end = time.time()
-#         print('[*] Время выполнения: {} секунд.'.format(end-start))
-#     return wrapper
+
+
+
+
+
+
+
 
 
 

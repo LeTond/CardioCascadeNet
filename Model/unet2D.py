@@ -1,12 +1,22 @@
-from parameters import MetaParameters
+ # -*- coding: utf-8 -*-
+"""
+Name: Anatoliy Levchuk
+Version: 1.1
+Date: 03-09-2024
+Email: feuerlag999@yandex.ru
+GitHub: https://github.com/LeTond
+"""
 
-import torch
 
+from configuration import MetaParameters
 from torch import nn
 from collections import OrderedDict
 from Model import resnet
 from torchvision import models
+
 import torch.nn.functional as F
+
+import torch
 
 
 class UNet_2D(nn.Module, MetaParameters):
@@ -91,12 +101,12 @@ class UNet_2D(nn.Module, MetaParameters):
                             in_channels = in_channels,
                             out_channels = features,
                             kernel_size = 3,
-                            stride=1,
+                            stride = 1,
                             padding = 1,
                             bias = False,
                         ),
                     ),
-                    (name + "norm1", nn.BatchNorm2d(num_features = features, affine=True)),   #, eps=1e-05, momentum=0.5, affine=True, track_running_stats=True
+                    (name + "norm1", nn.BatchNorm2d(num_features = features, affine = True)),   #, eps=1e-05, momentum=0.5, affine=True, track_running_stats=True
                     # (name + "relu1", nn.LeakyReLU(negative_slope = 0.1, inplace = True)),
                     (name + "relu1", nn.ReLU()),
 
@@ -106,12 +116,12 @@ class UNet_2D(nn.Module, MetaParameters):
                             in_channels = features,
                             out_channels = features,
                             kernel_size = 3,
-                            stride=1,
+                            stride = 1,
                             padding = 1,
                             bias = False,
                         ),
                     ),
-                    (name + "norm2", nn.BatchNorm2d(num_features = features, affine=True)),
+                    (name + "norm2", nn.BatchNorm2d(num_features = features, affine = True)),
                     # (name + "relu2", nn.LeakyReLU(negative_slope = 0.1, inplace = True)),
                     (name + "relu2", nn.ReLU()),
 
@@ -210,8 +220,9 @@ class UNet_2D_AttantionLayer(nn.Module, MetaParameters):
         dec1 = self.dropout(dec1)
         dec1 = self.decoder1(dec1)
 
-        return torch.softmax(self.conv(dec1), dim=1)
+        # return torch.softmax(self.conv(dec1), dim=1)
         # return torch.sigmoid(self.conv(dec1))
+        return self.conv(dec1)
 
     @staticmethod
     def Conv2x2(in_channels, features, name):
@@ -224,7 +235,7 @@ class UNet_2D_AttantionLayer(nn.Module, MetaParameters):
                             in_channels = in_channels,
                             out_channels = features,
                             kernel_size = 3,
-                            stride=1,
+                            stride = 1,
                             padding = 1,
                             bias = False,
                         ),
@@ -240,7 +251,7 @@ class UNet_2D_AttantionLayer(nn.Module, MetaParameters):
                             in_channels = features,
                             out_channels = features,
                             kernel_size = 3,
-                            stride=1,
+                            stride = 1,
                             padding = 1,
                             bias = False,
                         ),
@@ -274,8 +285,8 @@ class Attention_2D(nn.Module):
             nn.Softmax(dim = 1)
         )
         
-        self.relu = nn.ReLU(inplace = True)
-        # self.relu = nn.LeakyReLU(negative_slope = 0.1, inplace = True)
+        # self.relu = nn.ReLU(inplace = True)
+        self.relu = nn.LeakyReLU(negative_slope = 0.1, inplace = True)
         
     def forward(self,g,x):
         g1 = self.W_g(g)
@@ -289,17 +300,17 @@ class Attention_2D(nn.Module):
 class DoubleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
 
-    def __init__(self, in_channels, out_channels, mid_channels=None):
+    def __init__(self, in_channels, out_channels, mid_channels = None):
         super().__init__()
         if not mid_channels:
             mid_channels = out_channels
         self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
+            nn.Conv2d(in_channels, mid_channels, kernel_size = 3, padding = 1, bias = False),
             nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
+            nn.ReLU(inplace = True),
+            nn.Conv2d(mid_channels, out_channels, kernel_size = 3, padding = 1, bias = False),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace = True)
         )
 
     def forward(self, x):

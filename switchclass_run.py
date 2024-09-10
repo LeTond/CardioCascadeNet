@@ -1,8 +1,18 @@
+ # -*- coding: utf-8 -*-
+"""
+Name: Anatoliy Levchuk
+Version: 1.1
+Date: 03-09-2024
+Email: feuerlag999@yandex.ru
+GitHub: https://github.com/LeTond
+"""
+
+
+import os
 
 import nibabel as nib
 import numpy as np
  
-import os
 
 
 def get_nii(path_to_file):

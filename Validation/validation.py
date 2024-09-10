@@ -1,6 +1,15 @@
+ # -*- coding: utf-8 -*-
+"""
+Name: Anatoliy Levchuk
+Version: 1.1
+Date: 03-09-2024
+Email: feuerlag999@yandex.ru
+GitHub: https://github.com/LeTond
+"""
+
+
 from Preprocessing.preprocessing import ReadImages
 from Postprocessing.postprocessing import *
-from parameters import meta 
 from Preprocessing.dirs_logs import *
 from Training.dataset import *
 

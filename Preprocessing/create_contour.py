@@ -30,7 +30,6 @@ import matplotlib.pyplot as plt
 from torch import nn
 from skimage.transform import resize, rescale, downscale_local_mean
 from scipy.ndimage import rotate as rotate_image
-# from matplotlib import pylab as plt
 from torch.utils.data import DataLoader
 from sklearn import preprocessing        #pip install scikit-learn
 
