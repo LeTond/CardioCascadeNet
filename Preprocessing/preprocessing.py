@@ -92,23 +92,24 @@ class ReadImages():
         return list(self.get_file_list)
 
 
-class PreprocessData(ChooseKernelSize):
-    def __init__(self, image, mask = None, template = None, names = None, unet_type = None):    
-        # super(MetaParameters, self).__init__()
+class PreprocessData(MetaParameters):
+    def __init__(self, image, mask = None, template = None, names = None, unet_type = None, mask_type = None):
         super().__init__()
         self.__image = image
         self.__mask = mask
         self.__template = template
         self.__names = names
+        self.__mask_type = mask_type
         self.__unet_type = unet_type
+        self.kernel_size = chklsz.kernel_size(unet_type)
 
     @property
     def names(self):
         return self.__names
 
     @property
-    def unet_type(self):
-        return self.__unet_type
+    def mask_type(self):
+        return self.__mask_type
 
     @property
     def image(self):
@@ -127,9 +128,6 @@ class PreprocessData(ChooseKernelSize):
         image = np.array(self.image, dtype = np.float32)
         image = self.clipping(image)
         image = self.normalization(image)
-        # image = self.hyst_normalization(image)
-        # image = self.z_normalization(image)
-        # image = self.clahe_normalization(image)
         image = self.equalization_matrix(matrix = image)
         image = self.rescale_matrix(matrix = image, order = None)
         image = np.array(image.reshape(self.kernel_size, self.kernel_size, 1), dtype = np.float32)
@@ -144,9 +142,11 @@ class PreprocessData(ChooseKernelSize):
 
         if self.template is not None:
             template = np.array(self.template, dtype = np.float32)
-            template = self.clipping(template)
-            # template = self.z_normalization(template)
-            template = self.hyst_normalization(template)
+
+            if self.mask_type != 'infer_bull_level' and self.mask_type != 'train_bull_level':
+                template = self.clipping(template)
+                template = self.hyst_normalization(template)
+
             template = self.equalization_matrix(matrix = template)
             template = self.rescale_matrix(matrix = template, order = 0)
             template = np.array(template.reshape(self.kernel_size, self.kernel_size, 1), dtype = np.float32)
@@ -157,6 +157,7 @@ class PreprocessData(ChooseKernelSize):
 
     def clipping(self, image):
         image_max = np.max(image)
+
         if self.CLIP_RATE is not None:
             image = np.clip(image, self.CLIP_RATE[0] * image_max, self.CLIP_RATE[1] * image_max)
         
@@ -315,51 +316,54 @@ class MaskPreprocessing(MetaParameters):
         return self.image, mask, self.template
 
     @property
-    def bull_level_preprocessing(self):
-        image = self.image.copy()
+    def train_bull_level_preprocessing(self):
         template = self.mask.copy()
         mask = self.mask.copy()
 
-        for basal in range(1, 7):
-            if (template == basal).any():
-                template[template == basal] = 1
-                template[template != basal] = 1
-        for medial in range(7, 13):
-            if (template == medial).any():
-                template[template == medial] = 2
-                template[template != medial] = 2
-        for apical in range(13, 17):
-            if (template == apical).any():
-                template[template == apical] = 3
-                template[template != apical] = 3
-        for apex in range(17, 18):
-            if (template == apex).any():
-                template[template == apex] = 4
-                template[template != apex] = 4
+        template[template == 0] = 40
+        template[template != 40] = 60
 
-        mask[mask > 0] = 1
+        for basal in range(1, 7):
+            if (mask == basal).any():
+                template[template == 40] = 1
+        for medial in range(7, 13):
+            if (mask == medial).any():
+                template[template == 40] = 2
+        for apical in range(13, 17): 
+            if (mask == apical).any():
+                template[template == 40] = 3
+        for apex in range(17, 18):
+            if (mask == apex).any():
+                template[template == 40] = 4
+
+        template[template == 60] = 0
+        template = template / (len(self.BULLEYE_DICT_CLASS) - 1)
         
-        template = template * mask / 4
-        image = image * (1 - mask)
-        
-        return image, self.mask, template
+        return self.image, self.mask, template
 
     @property
     def infer_bull_level_preprocessing(self):
-        mask = self.mask.copy() / 4
-        image = self.image.copy()
+        mask = self.mask.copy()                 #Unet4_mask MYO_LEVEL
+        template = self.template.copy()         #Unet3_mask SCAR
 
-        template = mask.copy()
-        
-        mask[mask > 0] = 1
-        image = image * (1 - mask)
+        template[template == 1] = 0
+        myo_lvl = round(np.max(template))
 
-        return image, self.mask, template
+        if mask[mask == 1].sum().item() == 0:
+            myo_lvl = 4
+
+        template[template > 0] = 60
+        template[template == 0] = myo_lvl
+        template[template == 60] = 0
+
+        template = template / (len(self.BULLEYE_DICT_CLASS) - 1)
+
+        return self.image, self.mask, template
 
     @property
     def choose_mask_preprocessing(self):
-        if self.mask_type == 'bull_level':
-            return self.bull_level_preprocessing
+        if self.mask_type == 'train_bull_level':
+            return self.train_bull_level_preprocessing
 
         elif self.mask_type == 'infer_bull_level':
             return self.infer_bull_level_preprocessing
@@ -378,13 +382,14 @@ class MaskPreprocessing(MetaParameters):
         return self.choose_mask_preprocessing
 
 
-class Augmentation(ChooseKernelSize):
+class Augmentation(MetaParameters):
     def __init__(self, image, mask = None, template = None, unet_type = None):
         super().__init__()
         self.__image = image
         self.__mask = mask
         self.__template = template
         self.__unet_type = unet_type
+        self.kernel_size = chklsz.kernel_size(unet_type)
 
     @property
     def unet_type(self):
@@ -403,8 +408,8 @@ class Augmentation(ChooseKernelSize):
         return self.__template
 
     @property
-    def kernel_size(self):
-        return self.choose_kernel_size
+    def define_kernel_size(self):
+        return self.image.shape[0]
 
     @property
     def angle_list(self):
@@ -493,7 +498,8 @@ class CroppPreprocessData(MetaParameters):
         count = 0
         gap = self.CROPP_KERNEL // 2
 
-        last_top, last_bot, last_left, last_right = (shp[0] // 2 - gap), (shp[1] // 2 - gap), (shp[0] // 2 + gap), (shp[1] // 2 + gap)
+        last_top, last_bot, last_left, last_right = \
+        (shp[0] // 2 - gap), (shp[1] // 2 - gap), (shp[0] // 2 + gap), (shp[1] // 2 + gap)
 
         for slc in range(shp[2]):
             image = self.images[:, :, slc]
@@ -530,6 +536,7 @@ class CroppPreprocessData(MetaParameters):
             # center_column = np.array(list_weight_mass_x).sum() // count
             center_row = (mean_bot + mean_top) // 2
             center_column = (mean_left + mean_right) // 2
+        
         else:
             center_row, center_column = def_coord
 
@@ -541,25 +548,47 @@ class CroppPreprocessData(MetaParameters):
             for slc in range(shp[2]):
                 image_template = np.zeros((shp[0], shp[1])).copy()
 
-                if list_top[slc] == (shp[0] // 2 - gap) and list_bot[slc] == (shp[1] // 2 - gap) and list_left[slc] == (shp[0] // 2 + gap) and list_right[slc] == (shp[1] // 2 + gap):
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
-                elif list_top[slc] > mean_bot and list_bot[slc] > mean_bot and list_left[slc] > mean_bot and list_right[slc] > mean_bot:
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
-                elif list_top[slc] > mean_right and list_bot[slc] > mean_right and list_left[slc] > mean_right and list_right[slc] > mean_right:
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
-                elif list_top[slc] < mean_top and list_bot[slc] < mean_top and list_left[slc] < mean_top and list_right[slc] < mean_top:
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
-                elif list_top[slc] < mean_left and list_bot[slc] < mean_left and list_left[slc] < mean_left and list_right[slc] < mean_left:
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                if list_top[slc] == (shp[0] // 2 - gap) and list_bot[slc] == (shp[1] // 2 - gap) \
+                and list_left[slc] == (shp[0] // 2 + gap) and list_right[slc] == (shp[1] // 2 + gap):
+                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
+                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                
+                elif list_top[slc] > mean_bot and list_bot[slc] > mean_bot \
+                and list_left[slc] > mean_bot and list_right[slc] > mean_bot:
+                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
+                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                
+                elif list_top[slc] > mean_right and list_bot[slc] > mean_right \
+                and list_left[slc] > mean_right and list_right[slc] > mean_right:
+                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
+                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                
+                elif list_top[slc] < mean_top and list_bot[slc] < mean_top \
+                and list_left[slc] < mean_top and list_right[slc] < mean_top:
+                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
+                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                
+                elif list_top[slc] < mean_left and list_bot[slc] < mean_left \
+                and list_left[slc] < mean_left and list_right[slc] < mean_left:
+                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
+                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                
                 else:
-                    image_template[list_top[slc] - gap_1 : list_bot[slc] + gap_1, list_left[slc] - gap_1 : list_right[slc] + gap_1] = 1
+                    image_template[list_top[slc] - gap_1 : list_bot[slc] + gap_1, \
+                    list_left[slc] - gap_1 : list_right[slc] + gap_1] = 1
 
                 self.images[:, :, slc] = self.images[:, :, slc] * image_template
 
         images = self.images[center_row - gap: center_row + gap, center_column - gap: center_column + gap, :]
         masks = self.masks[center_row - gap: center_row + gap, center_column - gap: center_column + gap, :]
+        
+        if self.templates is not None: 
+            templates = self.templates[center_row - gap: center_row + gap, center_column - gap: center_column + gap, :]
+        
+        else:
+            templates = None
 
-        return images, masks, [center_row, center_column]
+        return images, masks, templates, [center_row, center_column]
 
 
 class ViewData():

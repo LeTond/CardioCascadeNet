@@ -27,10 +27,8 @@ class PlotResults(MetaParameters):
 
     def data_loader(self, data_list, kernel_sz, augmentation = False):
         getds_origin, getds_mask, getds_template, getds_names = GetData(data_list, augmentation).generated_data_list
-        data_set = MyDataset(self.NUM_CLASS, getds_origin, getds_mask, getds_template, getds_names, kernel_sz, default_transform)
+        data_set = MyDataset(getds_origin, getds_mask, getds_template, getds_names, default_transform)
         
-        # print(f'Test size: {len(data_set)}')
-
         data_batch_size = len(data_set)
         data_loader = DataLoader(data_set, data_batch_size, drop_last = True, shuffle = False, pin_memory = True)
 
@@ -150,13 +148,28 @@ elif meta.UNET2 is True and meta.UNET3 is False:
     model.load_state_dict(checkpoint['weights'])
     kernel_sz = meta.CROPP_KERNEL 
 
-elif meta.UNET3 is True:
+elif meta.UNET3 is True and meta.UNET4 is False:
     checkpoint = checkpoint[f'Net_{meta.DATASET_NAME}_{meta.UNET3_FOLD}']
     model = checkpoint[f'Model']
     model.load_state_dict(checkpoint['weights'])
     kernel_sz = meta.CROPP_KERNEL 
 
+elif meta.UNET4 is True and meta.UNET5 is False:
+    checkpoint = checkpoint[f'Net_{meta.DATASET_NAME}_{meta.UNET4_FOLD}']
+    model = checkpoint[f'Model']
+    model.load_state_dict(checkpoint['weights'])
+    kernel_sz = meta.CROPP_KERNEL 
+
+elif meta.UNET5 is True:
+    checkpoint = checkpoint[f'Net_{meta.DATASET_NAME}_{meta.UNET5_FOLD}']
+    model = checkpoint[f'Model']
+    model.load_state_dict(checkpoint['weights'])
+    kernel_sz = meta.CROPP_KERNEL 
+
+
 pltres = PlotResults()
+jsnlst = JsonFoldList()
+test_list = jsnlst.load_dataset_list('test_list')
 test_loader = pltres.data_loader(test_list, kernel_sz, False)
 
 print(f'Test size: {len(test_list)}')
@@ -166,11 +179,11 @@ ds = DiceLoss()
 show_predicted_masks = MaskPrediction().prediction_masks(model, test_loader)
 tm = TissueMetrics(model, test_loader)
 
-try:
-    bland_dict_class_stats = pltres.bland_altman_per_subject(model, test_list, meta, kernel_sz)
-    dict_class_stats = pltres.stats_per_subject(model, test_list, meta, kernel_sz)
+# try:
+#     bland_dict_class_stats = pltres.bland_altman_per_subject(model, test_list, meta, kernel_sz)
+#     dict_class_stats = pltres.stats_per_subject(model, test_list, meta, kernel_sz)
 
-except ValueError:
-    print(f'Subjects has no suitable images !!!!')
+# except ValueError:
+#     print(f'Subjects has no suitable images !!!!')
 
 

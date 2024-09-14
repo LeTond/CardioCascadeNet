@@ -63,41 +63,23 @@ class MetaParameters:
 
     # AUGMENTATION = False
     FREEZE_BN = False
-    # PRETRAIN = False
+    PRETRAIN = False
     NOISE = False
     EMPTY = False
     MULTYGAP = False
     # UNET1 = False
     # UNET2 = False
     # UNET3 = False
-    # UNET4 = False
-    # UNET5 = False
+    UNET4 = False
+    UNET5 = False
     BGCROPP = False
     LVCROPP = False
     BGLVCROPP = False
-
-    """ CrossEntropy Weights for labeles [Backgroung, LeftVentricle, Myocardium, Fibrosis] """
-    # DICT_CLASS = {
-    #             0: "Background", 1: "LV", 2: "MYO", 3: "FIB", # 4: "No_reflow", # 5: "Tromb",
-    #             }
-
-    # DICT_CLASS = {
-    #           0: "Background", 1: "Basal", 2: "Medial", 3: "Apical", 4: "Apex",
-    #           }
-
-    DICT_CLASS = {
-                    0: "Background", 
-                    1: "Seg 01", 2: "Seg 02", 3: "Seg 03", 4: "Seg 04", 5: "Seg 05", 6: "Seg 06",
-                    7: "Seg 07", 8: "Seg 08", 9: "Seg 09", 10: "Seg 10", 11: "Seg 11", 12: "Seg 12",
-                    13: "Seg 13", 14: "Seg 14", 15: "Seg 15", 16: "Seg 16",
-                    17: "Seg 17",
-                    }
 
     """ Network configuration """
     KERNEL = 192
     CROPP_KERNEL = 64
     CHANNELS = 2
-    NUM_CLASS = len(DICT_CLASS)
     LR = 1e-3
     BT_SZ = 32      # 512 x 512 - max batch_size == 8 if features == 32
     EPOCHS = 1000
@@ -110,20 +92,45 @@ class MetaParameters:
     # CLIP_RATE = [0.1, 0.9]
     CLIP_RATE = None
     
-    # CE_WEIGHTS = torch.FloatTensor([0.1, 0.5, 0.7, 0.9])
-    # CE_WEIGHTS = torch.FloatTensor([0.4, 0.7, 0.5, 0.9])
-    # CE_WEIGHTS = torch.FloatTensor([0.1, 0.8, 0.7, 0.9, 2])
-    CE_WEIGHTS = torch.FloatTensor(
+    SCAR_DICT_CLASS = {
+                0: "Background", 1: "LV", 2: "MYO", 3: "FIB", # 4: "No_reflow", # 5: "Tromb",
+                }
+
+    MYOLEVEL_DICT_CLASS = {
+              0: "Background", 1: "Basal", 2: "Medial", 3: "Apical", 4: "Apex",}
+
+    BULLEYE_DICT_CLASS = {
+                    0: "Background", 
+                    1: "Seg 01", 2: "Seg 02", 3: "Seg 03", 4: "Seg 04", 5: "Seg 05", 6: "Seg 06",
+                    7: "Seg 07", 8: "Seg 08", 9: "Seg 09", 10: "Seg 10", 11: "Seg 11", 12: "Seg 12",
+                    13: "Seg 13", 14: "Seg 14", 15: "Seg 15", 16: "Seg 16",
+                    17: "Seg 17",
+                    }
+
+    TARGET_CE_WEIGHTS = torch.FloatTensor([0.1, 0.5, 0.7, 0.9])
+    SCAR_CE_WEIGHTS = torch.FloatTensor([0.4, 0.7, 0.5, 0.9])
+    MYOLEVEL_CE_WEIGHTS = torch.FloatTensor([0.1, 0.8, 0.7, 0.9, 0.99])
+    BULLEYE_CE_WEIGHTS = torch.FloatTensor(
         [0.1, 
         0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 
         0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 
         0.8, 0.8, 0.8, 0.8, 
         1.2])
 
+    DICT_CLASS = SCAR_DICT_CLASS
+    # DICT_CLASS = MYOLEVEL_DICT_CLASS
+    # DICT_CLASS = BULLEYE_DICT_CLASS
+    NUM_CLASS = len(DICT_CLASS)
+
+    CE_WEIGHTS = TARGET_CE_WEIGHTS
+    # CE_WEIGHTS = SCAR_CE_WEIGHTS
+    # CE_WEIGHTS = MYOLEVEL_CE_WEIGHTS
+    # CE_WEIGHTS = BULLEYE_CE_WEIGHTS
+
     """ Project configuration """
     FOLD_NAME = 'full'  # [01:05] xor full
-    # DATASET_NAME = 'ALMAZ'
-    DATASET_NAME = 'BULLEYE'
+    DATASET_NAME = 'ALMAZ'
+    # DATASET_NAME = 'BULLEYE'
     # DATASET_NAME = 'HCM_adult'
     
     MODEL_NAME = 'model_best'
@@ -190,52 +197,37 @@ class FocalLoss(nn.modules.loss._WeightedLoss):
         
 
 class ChooseKernelSize(MetaParameters):
-    def __init__(self, unet_type = None):    
+    def __init__(self):    
         super().__init__()
-        self.__cropp_kernel_size = self.CROPP_KERNEL
-        self.__kernel_size = self.KERNEL
-        self.__unet_type = unet_type
 
-    @property
-    def kernel(self):
-        return self.__kernel_size
-    
-    @property
-    def cropp_kernel(self):
-        return self.__cropp_kernel_size
-
-    @property
-    def choose_unet_type(self):
-        if self.UNET3 is True:
-            return 'close_cropp'
-        elif self.UNET2 is True and self.UNET3 is False:
-            return 'cropp'
-        elif self.UNET2 is False and self.UNET3 is False:
-            return 'default'
-        else: 
-            return 'default'
-
-    @property
-    def unet_type(self):
-        if self.__unet_type is None:
-            return self.choose_unet_type
+    def matrix_size(self, unet_type = None):
+        if unet_type is None:
+            if self.UNET5 is True:
+                return 'cropp'
+            elif self.UNET4 is True and self.UNET5 is False:
+                return 'cropp'
+            elif self.UNET3 is True and self.UNET4 is False:
+                return 'close_cropp'
+            elif self.UNET2 is True and self.UNET3 is False:
+                return 'cropp'
+            elif self.UNET1 is True and self.UNET2 is False:
+                return 'default'
+            else: 
+                raise ValueError("Check UNET configuration. Make shure that all UNET MetaParameters before target UNET(N) is True")
         else:
-            return self.__unet_type
+            return unet_type
 
-    @property
-    def choose_kernel_size(self):
-        if self.unet_type == 'default':
-            return self.kernel
-        elif self.unet_type == 'cropp':
-            return self.cropp_kernel
-        elif self.unet_type == 'close_cropp':
-            return self.cropp_kernel
+    def kernel_size(self, unet_type = None):
+        matrix_size = self.matrix_size(unet_type)
+
+        if matrix_size == 'default':
+            return self.KERNEL
+        elif matrix_size == 'cropp':
+            return self.CROPP_KERNEL
+        elif matrix_size == 'close_cropp':
+            return self.CROPP_KERNEL
         else:
-            return self.kernel
-
-    @property
-    def kernel_size(self):
-        return self.choose_kernel_size
+            raise ValueError("Check matrix size value. Make shure that input value is correct for chosen matrix preprocessing")
 
 
 class ChooseModelConfig(MetaParameters):
@@ -249,12 +241,18 @@ class ChooseModelConfig(MetaParameters):
 
     @property  
     def choose_model_key(self):
-        if self.UNET3 is True:
+        if self.UNET5 is True:
+            return self.UNET5_FOLD
+        elif self.UNET4 is True and self.UNET5 is False:
+            return self.UNET4_FOLD
+        elif self.UNET3 is True and self.UNET4 is False:
             return self.UNET3_FOLD
         elif self.UNET2 is True and self.UNET3 is False:
             return self.UNET2_FOLD
-        elif self.UNET2 is False and self.UNET3 is False:
+        elif self.UNET1 is True and self.UNET2 is False:
             return self.UNET1_FOLD
+        else:
+            raise ValueError("Check UNET configuration. Make shure that all UNET MetaParameters before target UNET(N) is True")
 
     @property
     def model_key(self):
@@ -264,11 +262,11 @@ class ChooseModelConfig(MetaParameters):
     def choose_train_model(self):
         if self.PRETRAIN:    
             try:
-                # checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
-                # checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.model_key}']
+                checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
+                checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.model_key}']
 
-                checkpoint = torch.load(f'./Results/ALMAZ/ALMAZ_model.pth')
-                checkpoint = checkpoint[f'Net_ALMAZ_{self.model_key}']
+                # checkpoint = torch.load(f'./Results/ALMAZ/ALMAZ_model.pth')
+                # checkpoint = checkpoint[f'Net_ALMAZ_{self.model_key}']
                 
                 model = checkpoint['Model']
                 model.load_state_dict(checkpoint['weights'])  
@@ -329,9 +327,20 @@ class ChooseModelConfig(MetaParameters):
         return self.choose_scheduler_gen
 
 
+class ChooseLossFunction:
+    ...
+
+
+class ChooseTransform:
+    ...
+
+
+
+
 device = ChooseDevice().device
 meta = MetaParameters()
 fdwr = FileDirectoryWorker()
+chklsz = ChooseKernelSize()
 
 ########################################################################################################################
 # COMMENTS

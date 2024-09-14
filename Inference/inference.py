@@ -14,7 +14,6 @@ import torch
 import cv2
 import numpy as np
 import nibabel as nib
-# import pydicom as dicom
 
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as path_effects
@@ -26,15 +25,12 @@ from skimage.transform import resize, rescale, downscale_local_mean
 
 from Model.unet2D import UNet_2D, UNet_2D_AttantionLayer
 from Preprocessing.preprocessing import *
-# from Preprocessing.dirs_logs import create_dir
-# from Preprocessing.dirs_logs import FileDirectoryWorker
-
 from Postprocessing.postprocessing import *
 from configuration import *
 
 
 class GetListImages(MetaParameters):
-    def __init__(self, file_path, path_to_data, dataset_path, unet_type = None):
+    def __init__(self, file_path, path_to_data, dataset_path, unet_type = None, mask_type = None):
         super(MetaParameters, self).__init__()
         self.file_path = file_path
         self.file_name = file_path.split('/')[-1]
@@ -42,6 +38,7 @@ class GetListImages(MetaParameters):
         self.dataset_path = dataset_path
         self.def_coord = None
         self.__unet_type = unet_type
+        self.__mask_type = mask_type
         self.cropp_gap = 8
     
     @property
@@ -50,44 +47,34 @@ class GetListImages(MetaParameters):
 
     @property
     def mask_type(self):
-        if self.BGCROPP is True:
-            return 'bgcrop'
-        elif self.LVCROPP is True:
-            return 'lvcropp'
-        elif self.BGLVCROPP is True:
-            return 'bglvcropp'
-        elif self.UNET4 is True and self.UNET5 is False:
-            return 'myo_level'
-        elif self.UNET5 is True:
-            return 'infer_bull_level'
-        else:
-            return None
+        return self.__mask_type
 
     def nifti_list(self, masks):
         list_images, list_templates = [], []
         images = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
+        templates = images.copy()
+
         orig_img_shape = images.shape
 
-        if self.mask_type == 'infer_bull_level' or self.mask_type == 'myo_level':
-            masks = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
-
         if self.mask_type == 'infer_bull_level':
-            templates = ReadImages(f'./Dataset/BULLEYE_Unet4_mask_new/{self.file_name}').view_matrix
-            
-            masks[masks <= 1] = 0
-            masks[masks > 0] = 1            
-            masks = masks * templates.copy()
+            templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
 
         if masks is not None:
-            images, masks, self.def_coord = CroppPreprocessData(images, masks, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+            images, masks, templates, self.def_coord = \
+            CroppPreprocessData(images, masks, templates, \
+                unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+
         else:
             masks = np.zeros((images.shape))
 
-        templates = images.copy()
-
         for slc in range(images.shape[2]):
-            image, mask, template = PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], unet_type = self.unet_type).preprocessing
-            image, mask, template = MaskPreprocessing(image, mask = mask, template = template, mask_type = self.mask_type).mask_preprocessing
+            image, mask, template = \
+            PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], \
+                unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
+
+            image, mask, template = \
+            MaskPreprocessing(image, mask, template, \
+                mask_type = self.mask_type).mask_preprocessing
 
             list_images.append(image)
             list_templates.append(template)
@@ -102,22 +89,33 @@ class GetListImages(MetaParameters):
         return old_dicom
 
     def dicom_array(self, def_coord = None, masks = None):
-        list_images = []
-        list_templates = []
+        list_images, list_templates = [], []
         folder_name = self.old_dicom(self.file_path)
+
         images = ReadImages(f"{self.file_path}").get_dcm()
+        templates = images.copy()
+
         orig_img_shape = images.shape
 
+        if self.mask_type == 'infer_bull_level':
+            templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
+
         if masks is not None:
-            images, masks, def_coord = InferPreprocessData(images, masks, unet_type = self.unet_type).presegmentation_tissues(def_coord, self.cropp_gap)
+            images, masks, templates, def_coord = \
+            CroppPreprocessData(images, masks, templates, \
+                unet_type = self.unet_type).presegmentation_tissues(def_coord, self.cropp_gap)
+        
         else:
             masks = np.zeros((images.shape))
 
-        templates = images.copy()
-
         for slc in range(images.shape[2]):
-            image, mask, template = PreprocessData(images[:, :, slc], mask = None, template = templates[:, :, slc], unet_type = self.unet_type).preprocessing
-            image, mask, template = MaskPreprocessing(image, mask = mask, template = template, mask_type = self.mask_type).mask_preprocessing
+            image, mask, template = \
+            PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], \
+                unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
+            
+            image, mask, template = \
+            MaskPreprocessing(image, mask, template, \
+                mask_type = self.mask_type).mask_preprocessing
 
             list_images.append(image)
             list_templates.append(template)
@@ -136,7 +134,7 @@ class PredictionMask(MetaParameters):
         self.__templates = templates
         self.__def_coord = def_coord
         self.__unet_type = unet_type
-        self.kernel_size = ChooseKernelSize(self.unet_type).kernel_size
+        self.kernel_size = chklsz.kernel_size(unet_type)    
 
     @property
     def model(self):
@@ -162,28 +160,6 @@ class PredictionMask(MetaParameters):
     def def_coord(self):
         return self.__def_coord
 
-    @property
-    def unet_type(self):
-        return self.__unet_type
-
-    def expand_matrix(self, mask, row_img, column_img):
-        new_matrix = np.zeros((row_img, column_img))
-        
-        ## After prediction of the resized and rescaled image
-        if self.def_coord is None:
-            row_msk, column_msk = mask.shape
-            max_kernel = max(row_img, column_img)
-            mask = rescale(mask, (max_kernel / mask.shape[0], max_kernel / mask.shape[1]), anti_aliasing = False, order = 0)
-            new_matrix = mask[: row_img, : column_img]
-
-        ## After prediction of cropped and rescaled image
-        elif self.def_coord is not None:
-            X = (self.def_coord[0] - self.CROPP_KERNEL // 2)
-            Y = (self.def_coord[1] - self.CROPP_KERNEL // 2)
-            new_matrix[X: X + self.CROPP_KERNEL, Y: Y + self.CROPP_KERNEL] = mask
-
-        return new_matrix
-
     def predict(self, image):
         self.model.eval()
 
@@ -206,17 +182,17 @@ class PredictionMask(MetaParameters):
             image = self.images[slc]
             template = self.templates[slc]
             
-            image = np.array([image, template], dtype = np.float32)[:, :, :, 0]
-
+            image = np.array([image, template], dtype = np.float32)[:, :, :, 0]            
             predict, image = self.predict(image)
+            
             predict = np.reshape(predict, (self.kernel_size, self.kernel_size))
             predict = np.array(predict, dtype = np.float32)
-
+            
             predict = self.threshhold_myo_level(predict)
             predict = self.threshhold_prediction(predict)
             predict = self.expand_matrix(predict, self.image_shp[0], self.image_shp[1])
             predict = resize(predict, (self.image_shp[0], self.image_shp[1]), anti_aliasing_sigma = False)
-
+            
             mask_list.append(predict)
 
         mask_list = self.postprocess_matrix(mask_list)
@@ -224,8 +200,6 @@ class PredictionMask(MetaParameters):
         return mask_list
 
     def threshhold_myo_level(self, predict):
-        predict = np.round(predict)
-
         if self.UNET4 is True and self.UNET5 is False:
             try: 
                 unique, counts = np.unique(predict, return_counts = True)
@@ -256,7 +230,25 @@ class PredictionMask(MetaParameters):
             pass
 
         return predict
+
+    def expand_matrix(self, mask, row_img, column_img):
+        new_matrix = np.zeros((row_img, column_img))
         
+        ## After prediction of the resized and rescaled image
+        if self.def_coord is None:
+            row_msk, column_msk = mask.shape
+            max_kernel = max(row_img, column_img)
+            mask = rescale(mask, (max_kernel / mask.shape[0], max_kernel / mask.shape[1]), anti_aliasing = False, order = 0)
+            new_matrix = mask[: row_img, : column_img]
+
+        ## After prediction of cropped and rescaled image
+        elif self.def_coord is not None:
+            X = (self.def_coord[0] - self.CROPP_KERNEL // 2)
+            Y = (self.def_coord[1] - self.CROPP_KERNEL // 2)
+            new_matrix[X: X + self.CROPP_KERNEL, Y: Y + self.CROPP_KERNEL] = mask
+
+        return new_matrix
+
     @staticmethod
     def postprocess_matrix(mask_list):
         shp = list(mask_list[0].shape)
@@ -269,7 +261,7 @@ class PredictionMask(MetaParameters):
         mask_list = np.array(mask_list, dtype = np.float32)
         mask_list = mask_list.transpose(1, 2, 0)
         mask_list = np.round(mask_list)
-
+        
         return mask_list
 
 

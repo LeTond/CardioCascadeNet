@@ -68,7 +68,7 @@ class MaskPrediction(MetaParameters):
                     pred = predict[slc]
                     labl = labels[slc]
                     
-                    if self.UNET1 is True and self.UNET2 is False:
+                    if self.UNET4 is True and self.UNET5 is False:
                         try: 
                             unique, counts = np.unique(pred.cpu(), return_counts=True)
                             test_dict = dict(zip(unique, counts))

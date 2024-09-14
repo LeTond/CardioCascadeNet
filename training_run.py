@@ -32,7 +32,9 @@ class ChooseModelConfig(MetaParameters):
     def __init__(self):    
         super(MetaParameters, self).__init__()
         self.__model = self.choose_train_model
-        self.print_model_key
+        
+        if self.PRETRAIN:
+            self.print_model_key
 
     @property
     def model(self):
@@ -42,21 +44,26 @@ class ChooseModelConfig(MetaParameters):
     def choose_model_key(self):
         if self.UNET5 is True:
             return self.UNET5_FOLD
-        elif self.UNET5 is False and self.UNET4 is True:
+
+        elif self.UNET4 is True and self.UNET5 is False:
             return self.UNET4_FOLD
-        elif self.UNET3 is True and self.UNET4 is False and self.UNET5 is False:
+        
+        elif self.UNET3 is True and self.UNET4 is False:
             return self.UNET3_FOLD
+        
         elif self.UNET2 is True and self.UNET3 is False:
             return self.UNET2_FOLD
-        elif self.UNET2 is False and self.UNET3 is False:
+        
+        elif self.UNET1 is True and self.UNET2 is False:
             return self.UNET1_FOLD
 
     @property
     def model_key(self):
         return self.choose_model_key
 
+    @property
     def print_model_key(self):
-        print(f'Model KEY {model_key} Was Chosen')
+        print('\n' + f'Model KEY {self.model_key} Was Chosen' + '\n')
 
     @property
     def choose_train_model(self):
@@ -74,7 +81,7 @@ class ChooseModelConfig(MetaParameters):
                 print(f'Model Loaded: {self.DATASET_NAME}/{self.MODEL_NAME}.pth !!!')
 
             except:
-                print('No Trained Models !!!')
+                print('\n' + 'No Trained Models !!!' + '\n')
                 model = UNet_2D_AttantionLayer().to(device = device)
         else:
             model = UNet_2D_AttantionLayer().to(device = device)
@@ -102,9 +109,8 @@ class ChooseModelConfig(MetaParameters):
         # optimizer = Lion(model.parameters(), lr = meta.LR, betas = (0.9, 0.99), weight_decay = meta.WDC)
         # optimizer = torch.optim.AdamW(model.parameters(), lr = learning_rate, weight_decay = wdc, amsgrad = False)
         # optimizer = torch.optim.SGD(model.parameters(), lr = meta.LR, weight_decay = meta.WDC, momentum = 0.9, nesterov = True)        
-        # optimizer = Ranger(self.model.parameters(), lr = self.LR, k = 6, N_sma_threshhold = 5, weight_decay = self.WDC)
-
-        optimizer = Ranger(filter(lambda x: x.requires_grad, self.model.parameters()),  lr = self.LR, k = 6, N_sma_threshhold = 5, weight_decay = self.WDC)
+        optimizer = Ranger(self.model.parameters(), lr = self.LR, k = 6, N_sma_threshhold = 5, weight_decay = self.WDC)
+        # optimizer = Ranger(filter(lambda x: x.requires_grad, self.model.parameters()),  lr = self.LR, k = 6, N_sma_threshhold = 5, weight_decay = self.WDC)
 
         return optimizer
 
@@ -130,12 +136,13 @@ class ChooseModelConfig(MetaParameters):
 
 if __name__ == '__main__':
     cmc = ChooseModelConfig()
+
     model = cmc.model
-    scheduler_gen = cmc.scheduler_gen
     optimizer = cmc.optimizer
+    scheduler_gen = cmc.scheduler_gen
 
     fdwr.create_dir_log(project_name = meta.PROJ_NAME)
-    
+
     ########################################################################################################################
     # Creating loaders for training and validating network
     ########################################################################################################################

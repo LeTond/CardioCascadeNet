@@ -260,17 +260,16 @@ class CompareMatrix(MetaParameters):
                 )
 
     def print(self):
-        ...
         # print(f"Statistics was counted for {self.DICT_CLASS[self.layer]} tissue")
-        # print(
-        #     f'{self.sub_name()}: '
-        #     f' Mean Dice = {self.dice()}, '
+        print(
+            f'{self.sub_name()}: '
+            f' Mean Dice = {self.dice()}, '
         #     f' Mean Recall = {self.recall()}, '
         #     f' Mean Precision = {self.precision()}, '
             # f' Mean Jaccard = {self.jaccard()}, '
             # f' Mean HD = {self.hausdorff_distance()}, '
             # f' Mean FPR = {self.fpr()}, '
-            # )
+            )
         # print(f'{self.sub_name()}: FN pixels {self.FN}, FP pixels {self.FP}, TP pixels: {self.TP}')
 
         # print(

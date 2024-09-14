@@ -27,19 +27,21 @@ class GetData(MetaParameters):
         super(MetaParameters, self).__init__()
         self.files = files
         self.augmentation = augmentation
-
+        
     @property
     def unet_type(self):
         if self.UNET5 is True:
             return 'cropp'
         elif self.UNET4 is True and self.UNET5 is False:
             return 'cropp'
-        elif self.UNET3 is True and self.UNET4 is False and self.UNET5 is False:
+        elif self.UNET3 is True and self.UNET4 is False:
             return 'close_cropp'
-        elif self.UNET3 is False and self.UNET2 is True:
+        elif self.UNET2 is True and self.UNET3 is False:
             return 'cropp'
-        elif self.UNET2 is False and self.UNET3 is False:
+        elif self.UNET1 is True and self.UNET2 is False:
             return 'default'
+        else:
+            raise ValueError 
 
     @property
     def mask_type(self):
@@ -52,7 +54,7 @@ class GetData(MetaParameters):
         elif self.UNET4 is True and self.UNET5 is False:
             return 'myo_level'
         elif self.UNET5 is True:
-            return 'bull_level'
+            return 'train_bull_level'
         else:
             return None
 
@@ -118,15 +120,20 @@ class GetData(MetaParameters):
 
             sub_name = file_name.replace('.nii', '')
 
+            if self.mask_type == 'train_bull_level':
+                templates = ReadImages(f"{self.MASKS_DIR}/{file_name}").view_matrix
+
+            else:
+                templates = images.copy()
+
             if self.unet_type == 'cropp' or self.unet_type == 'close_cropp':
                 try:
-                    preseg = CroppPreprocessData(images, masks, None, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
-                    images = preseg[0]
-                    masks = preseg[1]
+                    images, masks, templates, def_coord = \
+                    CroppPreprocessData(images, masks, templates, \
+                        unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+                
                 except:
                     print(f'Data INFER Preprocessing Problem with {sub_name}')
-
-            templates = images.copy()
 
             for slc in range(images.shape[2]):
                 image = images[:, :, slc]
@@ -134,17 +141,22 @@ class GetData(MetaParameters):
                 template = templates[:, :, slc]
 
                 try:
-                    image, mask, template = Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
+                    image, mask, template = Augmentation(image, mask, template, \
+                        unet_type = self.unet_type).rotate_2d
+
                 except:
                     print(f'Data Augmentation Problem with {sub_name}')
             
                 try:
-                    image, mask, template = PreprocessData(image, mask, template, unet_type = self.unet_type).preprocessing
+                    image, mask, template = PreprocessData(image, mask, template, \
+                        unet_type = None, mask_type = self.mask_type).preprocessing
+
                 except:
                     print(f'Data Preprocessing Problem with {sub_name}')
                 
                 try:
-                    image, mask, template = MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
+                    image, mask, template = MaskPreprocessing(image, mask, template, \
+                        mask_type = self.mask_type).mask_preprocessing
 
                 except:
                     print(f'Data MaskPreprocessing Problem with {sub_name}')
@@ -198,7 +210,8 @@ class GetData(MetaParameters):
         #             pass 
 
         try:
-            list_images, list_masks, list_templates, list_names = PreprocessData(list_images, list_masks, list_templates, list_names).shuff_dataset
+            list_images, list_masks, list_templates, list_names = \
+            PreprocessData(list_images, list_masks, list_templates, list_names).shuff_dataset
         except:
             print('Shuffle was broken')
             pass
@@ -206,7 +219,7 @@ class GetData(MetaParameters):
         return list_images, list_masks, list_templates, list_names
 
 
-class MyDataset(Dataset, ChooseKernelSize):
+class MyDataset(Dataset):
     def __init__(self, ds_images, ds_masks, ds_templates, ds_names, transform = None, images_and_labels = []):
         super().__init__()
 
@@ -216,6 +229,7 @@ class MyDataset(Dataset, ChooseKernelSize):
         self.masks = ds_masks
         self.templates = ds_templates
         self.names = ds_names
+        self.kernel_size = chklsz.kernel_size(None)
 
         for i in range(len(self.images)):
             self.images_and_labels.append((i, i, i, i))

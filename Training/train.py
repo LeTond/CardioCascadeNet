@@ -32,23 +32,26 @@ class TrainNetwork(MetaParameters):
     def choose_model_key(self):
         if self.UNET5 is True:
             return self.UNET5_FOLD
-        elif self.UNET5 is False and self.UNET4 is True:
+
+        elif self.UNET4 is True and self.UNET5 is False:
             return self.UNET4_FOLD
-        elif self.UNET3 is True and self.UNET5 is False and self.UNET4 is False:
+        
+        elif self.UNET3 is True and self.UNET4 is False:
             return self.UNET3_FOLD
+        
         elif self.UNET2 is True and self.UNET3 is False:
             return self.UNET2_FOLD
-        elif self.UNET2 is False and self.UNET3 is False:
-            return self.UNET1_FOLD
-        elif self.UNET2 is False and self.UNET3 is False:
+        
+        elif self.UNET1 is True and self.UNET2 is False:
             return self.UNET1_FOLD
 
     @property
     def model_key(self):
         return self.choose_model_key
 
+    @property
     def print_model_key(self):
-        print(f'Model KEY {model_key} Was Chosen')
+        print(f'Model KEY {self.model_key} Was Chosen')
 
     def get_metrics(self, loader_):
         self.model.eval()
@@ -76,6 +79,7 @@ class TrainNetwork(MetaParameters):
                 for key in range(1, num_layers):
                     predict_ = (predict == key)
                     labels_ = (labels == key)
+
                     dictionary[f'Dice_{self.DICT_CLASS[key]}'] += float(self.ds(predict_, labels_))
 
         for key in range(1, num_layers):
@@ -91,6 +95,7 @@ class TrainNetwork(MetaParameters):
         for epoch in range(self.EPOCHS + 1):
             results = ''
             time_start_epoch = time.time()
+            
             self.model.train()
             
             for inputs, labels, sub_names in self.train_loader:
@@ -98,7 +103,6 @@ class TrainNetwork(MetaParameters):
           
                 predict = self.model(inputs)
                 train_loss = loss_function(predict, labels)
-                # train_loss_02 = 0
 
                 predict = torch.softmax(predict, dim = 1)
                 predict = torch.argmax(predict, dim = 1)
@@ -124,13 +128,15 @@ class TrainNetwork(MetaParameters):
 
             # val_loss = validating[0]
             # self.scheduler_gen.step(val_loss)
-
-            num_layers = len(self.DICT_CLASS)
+            
             results += f'TRAIN: Loss = {round(training[0], 3)}'
-            for key in range(1, num_layers):
+            
+            for key in range(1, self.NUM_CLASS):
                 results += f' Dice_{self.DICT_CLASS[key]} = ' + str(round(training[1].get(f'Dice_{self.DICT_CLASS[key]}'), 3))
+            
             results += f'\nVALID: Loss = {round(validating[0], 3)}'
-            for key in range(1, num_layers):
+            
+            for key in range(1, self.NUM_CLASS):
                 results += f' Dice_{self.DICT_CLASS[key]} = ' + str(round(validating[1].get(f'Dice_{self.DICT_CLASS[key]}'), 3))
             
             fdwr.log_stats(project_name = self.PROJ_NAME, results = results)
@@ -141,6 +147,7 @@ class TrainNetwork(MetaParameters):
 
                 if trigger_times >= self.EARLY_STOPPING:
                     print('Early stopping!\nStart to test process.')
+                    
                     return self.model
 
             else:
