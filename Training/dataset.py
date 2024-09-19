@@ -100,7 +100,7 @@ class GetData(MetaParameters):
         return cropp_gap
 
     def check_mask(self, mask, sub_name, slc):
-        if self.EMPTY is False and (mask > 0).any() is False:
+        if self.EMPTY is False and mask[mask > 0].sum().item() == 0:
             print(f"Subject {sub_name} slice {slc} was passed because EMPY is FALSE")
             return False
 
@@ -129,9 +129,7 @@ class GetData(MetaParameters):
             if self.unet_type == 'cropp' or self.unet_type == 'close_cropp':
                 try:
                     images, masks, templates, def_coord = \
-                    CroppPreprocessData(images, masks, templates, \
-                        unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
-                
+                    CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
                 except:
                     print(f'Data INFER Preprocessing Problem with {sub_name}')
 
@@ -141,23 +139,20 @@ class GetData(MetaParameters):
                 template = templates[:, :, slc]
 
                 try:
-                    image, mask, template = Augmentation(image, mask, template, \
-                        unet_type = self.unet_type).rotate_2d
-
+                    image, mask, template = \
+                    Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
                 except:
                     print(f'Data Augmentation Problem with {sub_name}')
             
                 try:
-                    image, mask, template = PreprocessData(image, mask, template, \
-                        unet_type = None, mask_type = self.mask_type).preprocessing
-
+                    image, mask, template = \
+                    PreprocessData(image, mask, template, unet_type = None, mask_type = self.mask_type).preprocessing
                 except:
                     print(f'Data Preprocessing Problem with {sub_name}')
                 
                 try:
-                    image, mask, template = MaskPreprocessing(image, mask, template, \
-                        mask_type = self.mask_type).mask_preprocessing
-
+                    image, mask, template = \
+                    MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
                 except:
                     print(f'Data MaskPreprocessing Problem with {sub_name}')
 
@@ -219,7 +214,7 @@ class GetData(MetaParameters):
         return list_images, list_masks, list_templates, list_names
 
 
-class MyDataset(Dataset):
+class MyDataset(Dataset, MetaParameters):
     def __init__(self, ds_images, ds_masks, ds_templates, ds_names, transform = None, images_and_labels = []):
         super().__init__()
 
@@ -229,7 +224,7 @@ class MyDataset(Dataset):
         self.masks = ds_masks
         self.templates = ds_templates
         self.names = ds_names
-        self.kernel_size = chklsz.kernel_size(None)
+        self.kernel_size = chklsz.kernel_size(unet_type = None)
 
         for i in range(len(self.images)):
             self.images_and_labels.append((i, i, i, i))

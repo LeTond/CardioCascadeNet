@@ -145,7 +145,7 @@ class PreprocessData(MetaParameters):
 
             if self.mask_type != 'infer_bull_level' and self.mask_type != 'train_bull_level':
                 template = self.clipping(template)
-                template = self.hyst_normalization(template)
+                template = self.clahe_normalization(template)
 
             template = self.equalization_matrix(matrix = template)
             template = self.rescale_matrix(matrix = template, order = 0)
@@ -295,7 +295,8 @@ class MaskPreprocessing(MetaParameters):
     @property
     def myo_level_preprocessing(self):
         mask = self.mask.copy()
-        
+        template = np.zeros((self.template.shape))
+
         for basal in range(1, 7):
             if (mask == basal).any():
                 mask[mask == basal] = 1
@@ -313,7 +314,7 @@ class MaskPreprocessing(MetaParameters):
                 mask[mask == apex] = 4
                 mask[mask != apex] = 4
 
-        return self.image, mask, self.template
+        return self.image, mask, template
 
     @property
     def train_bull_level_preprocessing(self):

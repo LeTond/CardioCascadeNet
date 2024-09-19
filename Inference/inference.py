@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.1
+Version: 1.2
 Date: 03-09-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
@@ -61,20 +61,17 @@ class GetListImages(MetaParameters):
 
         if masks is not None:
             images, masks, templates, self.def_coord = \
-            CroppPreprocessData(images, masks, templates, \
-                unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+            CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
 
         else:
             masks = np.zeros((images.shape))
 
         for slc in range(images.shape[2]):
             image, mask, template = \
-            PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], \
-                unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
+            PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
 
             image, mask, template = \
-            MaskPreprocessing(image, mask, template, \
-                mask_type = self.mask_type).mask_preprocessing
+            MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
 
             list_images.append(image)
             list_templates.append(template)
@@ -102,24 +99,24 @@ class GetListImages(MetaParameters):
 
         if masks is not None:
             images, masks, templates, def_coord = \
-            CroppPreprocessData(images, masks, templates, \
-                unet_type = self.unet_type).presegmentation_tissues(def_coord, self.cropp_gap)
+            CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(def_coord, self.cropp_gap)
         
         else:
             masks = np.zeros((images.shape))
 
         for slc in range(images.shape[2]):
             image, mask, template = \
-            PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], \
-                unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
+            PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
+            
+            # image, mask, template = \
+            # PreprocessData(images[:, :, slc], None, templates[:, :, slc], unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
             
             image, mask, template = \
-            MaskPreprocessing(image, mask, template, \
-                mask_type = self.mask_type).mask_preprocessing
+            MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
 
             list_images.append(image)
             list_templates.append(template)
-            
+
         return list_images, list_templates, orig_img_shape, def_coord
 
 
@@ -184,7 +181,6 @@ class PredictionMask(MetaParameters):
             
             image = np.array([image, template], dtype = np.float32)[:, :, :, 0]            
             predict, image = self.predict(image)
-            
             predict = np.reshape(predict, (self.kernel_size, self.kernel_size))
             predict = np.array(predict, dtype = np.float32)
             
@@ -222,9 +218,9 @@ class PredictionMask(MetaParameters):
             if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
                 pred_fib = predict[predict == 3]            
                 pred_myo = predict[predict == 2]
-                rel_volume = (pred_fib.sum().item() + smooth) / (pred_fib.sum().item() + pred_myo.sum().item() + smooth) * 100
+                rel_volume = (pred_fib.sum().item() + 1e-4) / (pred_fib.sum().item() + pred_myo.sum().item() + 1e-4) * 100
                 
-                if rel_volume < 2 and (predict == 3).sum().item() > 0:
+                if rel_volume < 1 and (predict == 3).sum().item() > 0:
                     predict[predict == 3] = 2
         except:
             pass
@@ -473,19 +469,22 @@ class PdfSaver(MetaParameters):
         self.dataset_path = dataset_path
         self.inference_directory = inference_directory
         self.file_name = file_path.split('/')[-1]
+        
         self.images_list = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
         self.masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
-
-        # self.masks_list = ReadImages(f"./Dataset/ALMAZ_mask/{self.file_name}").view_matrix
+        self.orig_masks_list = ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
         # self.fib_masks_list = ReadImages(f"/Users/aglevchuk/Documents/PycharmProjects/Unet_Cardiac/BullEyeMapUnet/Dataset/BULLEYE_Unet3_mask_new/{self.file_name}").view_matrix()
-        # self.fib_masks_list = ReadImages(f"/Users/aglevchuk/Documents/PycharmProjects/Unet_Cardiac/BullEyeMapUnet/Dataset/HCM_adult_Unet3_mask_new/{self.file_name}").view_matrix()
-
+        
         self.images_list = self.images_list.transpose(2, 0, 1)
         self.masks_list = self.masks_list.transpose(2, 0, 1)
+        self.orig_masks_list = self.orig_masks_list.transpose(2, 0, 1)
         # self.fib_masks_list = self.fib_masks_list.transpose(2, 0, 1)
 
         self.smooth = 1e-5
         self.rows = 3
+
+        self.bbox = dict(boxstyle = "round", fc = "0.8")
+        self.arrowprops = dict(arrowstyle = "->", connectionstyle = "angle, angleA = 0, angleB = 90,rad = 10")
 
     @property
     def create_dict_volume_class(self):
@@ -514,9 +513,71 @@ class PdfSaver(MetaParameters):
         return volume_list_dict
 
     @staticmethod
-    def divide_chunks(l, n):
-        for i in range(0, len(l), n):
-            yield l[i:i + n]
+    def divide_chunks(input_list, rows):
+        for i in range(0, len(input_list), rows):
+            yield input_list[i:i + rows]
+
+    def preprocess_matrix(self, matrix):
+        matrix  = np.flip(matrix, (1))
+        matrix = np.rot90(matrix, k = 1, axes = (0, 1))
+        
+        return matrix
+
+    def add_annotate_class(self, slc, ax, mask_slc):
+        for clss in range(self.NUM_CLASS):
+            if mask_slc[mask_slc == clss].sum().item() > 3:
+                mark_mask = mask_slc.copy()
+                mark_mask[mark_mask != clss] = 0
+                weight_mass_y, weight_mass_x = ndimage.measurements.center_of_mass(mark_mask)
+
+                ax.annotate(f'S{clss}', 
+                            xy = (weight_mass_x, weight_mass_y), 
+                            fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y - 5), 
+                            #  arrowprops = dict(facecolor = 'red'),
+                            arrowprops = self.arrowprops,
+                            bbox = self.bbox, 
+                            color = 'black')
+
+                ax.plot([weight_mass_x], [weight_mass_y],  marker = ".", color = 'orange')
+
+        for key in range(1, self.NUM_CLASS): 
+            mask_slc[0][key - 1] = key
+
+        return ax, mask_slc
+
+    def use_scar_threshold(self, report_title, page = None, slc = None, class_volume = None):
+        try:
+            if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
+                if page != None and slc != None:
+                    MYOv = class_volume[f'Chunk_{self.DICT_CLASS[2]}'][page]
+                    FIBv = class_volume[f'Chunk_{self.DICT_CLASS[3]}'][page]
+                    relVolume = round((FIBv[slc] / (FIBv[slc] + MYOv[slc] + self.smooth)) * 100, 2)
+                    report_title += (f'RelVol of FIB: {relVolume} % ')
+
+                elif page == None and slc == None:
+                    related_full_fib_volume = round((
+                        (sum(class_volume[f'Volume_{self.DICT_CLASS[3]}'])) / 
+                        (sum(class_volume[f'Volume_{self.DICT_CLASS[2]}']) + 
+                            sum(class_volume[f'Volume_{self.DICT_CLASS[3]}']) + self.smooth)) * 100, 0)
+                    report_title += f'Full relative volume: ≈ {related_full_fib_volume} %'
+
+        except:
+            pass
+
+        return report_title
+
+    def write_class_volume(self, report_title, page = None, slc = None, class_volume = None):
+        for key in range(1, self.NUM_CLASS):
+            if page != None and slc != None:
+                if class_volume[f"Chunk_{self.DICT_CLASS[key]}"][page][slc] / 1000 > 1:
+                    report_title += (
+                        f'{self.DICT_CLASS[key]}_vol: {class_volume[f"Chunk_{self.DICT_CLASS[key]}"][page][slc] / 1000} ml, ' )
+                
+            elif page == None and slc == None:
+                report_title += (
+                    f'Full {self.DICT_CLASS[key]} volume: {sum(class_volume[f"Volume_{self.DICT_CLASS[key]}"]) / 1000} ml, \n' )
+
+        return report_title
 
     @property
     def save_pdf(self):
@@ -527,183 +588,70 @@ class PdfSaver(MetaParameters):
             volume_dict_class[f'Volume_{self.DICT_CLASS[key]}'] = volume_list_dict[f'Volume_{self.DICT_CLASS[key]}']
 
         num_chunk = len(self.images_list) % self.rows
-        chunk_list_masks = list(self.divide_chunks(self.masks_list, self.rows))
         chunk_list_images = list(self.divide_chunks(self.images_list, self.rows))
+        chunk_list_masks = list(self.divide_chunks(self.masks_list, self.rows))
+        chunk_list_orig_masks = list(self.divide_chunks(self.orig_masks_list, self.rows))
         # chunk_list_fib_masks = list(self.divide_chunks(self.fib_masks_list, self.rows))
 
         for key in range(1, self.NUM_CLASS): 
             volume_dict_class[f'Chunk_{self.DICT_CLASS[key]}'] = list(self.divide_chunks(volume_dict_class[f'Volume_{self.DICT_CLASS[key]}'], self.rows))
 
-        num_chunk = len(chunk_list_images)
+        num_pages = len(chunk_list_images)
         pp = PdfPages(f'{self.inference_directory}/{self.file_name}_results.pdf')
         
-        for chunk in range(num_chunk):
-            masks = chunk_list_masks[chunk]
-            images = chunk_list_images[chunk]            
-            # fib_masks = chunk_list_fib_masks[chunk]
+        for page in range(num_pages):
+            images = chunk_list_images[page]
+            masks = chunk_list_masks[page]
+            orig_masks = chunk_list_orig_masks[page]
+            # fib_masks = chunk_list_fib_masks[page]
 
-            len_chunk = len(masks)
+            images_on_page = len(masks)
             
-            # masks[masks == 1] = 0
-            # fib_masks[fib_masks==1] = 0
+            if images_on_page > 1:
+                num_images = images_on_page
+            elif images_on_page == 1:
+                num_images = 3
 
-            if len_chunk > 1:
-                figure, ax = plt.subplots(nrows = len_chunk, ncols = 2, figsize = (12, 12))
-                colormap = plt.cm.get_cmap('viridis')  # 'plasma' or 'viridis'
-                colormap.set_under('k', alpha = .5)
+            figure, ax = plt.subplots(nrows = num_images, ncols = 3, figsize = (12, 12))
+            colormap = plt.cm.get_cmap('viridis')  # 'plasma' or 'viridis'
+            colormap.set_under('k', alpha = .5)
 
-                bbox = dict(boxstyle = "round", fc = "0.8")
-                arrowprops = dict(arrowstyle = "->", connectionstyle = "angle, angleA = 0, angleB = 90,rad = 10")
+            for slc in range(images_on_page):                    
+                image_slc = self.preprocess_matrix(images[slc])
+                mask_slc = self.preprocess_matrix(masks[slc])
+                orig_mask_slc = self.preprocess_matrix(orig_masks[slc])
+                # fib_mask_slc  = self.preprocess_matrix(fib_masks[slc])
 
-                for i in range(len_chunk):
-                    mask_i  = np.flip(masks[i], (1))
-                    image_i = np.flip(images[i], (1))
-                    # fib_mask_i  = np.flip(fib_masks[i], (1))
-                    
-                    mask_i = np.rot90(mask_i, k = 1, axes = (0, 1))
-                    image_i = np.rot90(image_i, k = 1, axes = (0, 1))
-                    # fib_mask_i = np.rot90(fib_mask_i, k = 1, axes = (0, 1))
+                ax[slc, 1], mask_slc = self.add_annotate_class(slc, ax[slc, 1], mask_slc)
+                ax[slc, 2], orig_mask_slc = self.add_annotate_class(slc, ax[slc, 2], orig_mask_slc)
+                # ax[slc, 3], fib_mask_slc = self.add_annotate_class(slc, ax[slc, 2], fib_mask_slc)
 
-                    for clss in range(self.NUM_CLASS):
-                        if mask_i[mask_i == clss].sum().item() > 3:
-                            mark_mask = mask_i.copy()
-                            mark_mask[mark_mask != clss] = 0
-                            weight_mass_y, weight_mass_x = ndimage.measurements.center_of_mass(mark_mask)
+                ax[slc, 0].imshow(image_slc, plt.get_cmap('gray'))
 
-                            ax[i, 1].annotate(f'S{clss}', 
-                                xy = (weight_mass_x, weight_mass_y), 
-                                fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y - 5), 
-                                # arrowprops = dict(facecolor = 'red'),
-                                arrowprops = arrowprops,
-                                bbox = bbox, 
-                                color = 'black')
+                ax[slc, 1].imshow(image_slc, plt.get_cmap('gray'))
+                ax[slc, 1].imshow(mask_slc, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
+                ax[slc, 1].contour(mask_slc, alpha = 0.5)
 
-                            ax[i, 1].plot([weight_mass_x], [weight_mass_y],  marker = ".", color = 'orange')
+                ax[slc, 2].imshow(image_slc, plt.get_cmap('gray'))
+                ax[slc, 2].imshow(orig_mask_slc, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
+                ax[slc, 2].contour(orig_mask_slc, alpha = 0.5)
 
-                    for key in range(1, self.NUM_CLASS): 
-                        mask_i[0][key - 1] = key
-                    # for fkey in range(4):
-                    #     fib_mask_i[0][fkey - 1] = fkey
-
-                    ax[i, 0].imshow(image_i, plt.get_cmap('gray'))
-
-                    ax[i, 1].imshow(image_i, plt.get_cmap('gray'))
-                    ax[i, 1].imshow(mask_i, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
-                    ax[i, 1].contour(mask_i, alpha = 0.5)
-
-                    # ax[i, 2].imshow(image_i, plt.get_cmap('gray'))
-                    # ax[i, 2].imshow(fib_mask_i, alpha = 0.7, interpolation = None, cmap = colormap,  vmin = 0.5)
-
-                    report_title = ''
-                    
-                    ################################################################################
-                    try:
-                        if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
-                            MYOv = volume_dict_class[f'Chunk_{self.DICT_CLASS[2]}'][chunk]
-                            FIBv = volume_dict_class[f'Chunk_{self.DICT_CLASS[3]}'][chunk]
-                            relVolume = round((FIBv[i] / (FIBv[i] + MYOv[i] + self.smooth)) * 100, 2)
-                            report_title += (f'RelVol of FIB: {relVolume} % ')
-                    except:
-                        pass
-                    ################################################################################
-
-                    for key in range(1, self.NUM_CLASS):
-                        if volume_dict_class[f"Chunk_{self.DICT_CLASS[key]}"][chunk][i] / 1000 > 1:
-                            report_title += (
-                                f'{self.DICT_CLASS[key]}_vol: {volume_dict_class[f"Chunk_{self.DICT_CLASS[key]}"][chunk][i] / 1000} ml, ' 
-                                )
-
-                    ax[i, 1].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
-
-                    figure.tight_layout()
-                pp.savefig(figure)
-                
-            elif len_chunk == 1:
-                figure, ax = plt.subplots(nrows = 1, ncols = 2, figsize = (8, 8))
-
-                colormap = plt.cm.get_cmap('viridis')  # 'plasma' or 'viridis'
-                colormap.set_under('k', alpha = .5)
-
-                bbox = dict(boxstyle = "round", fc = "0.8")
-                arrowprops = dict(arrowstyle = "->", connectionstyle = "angle,angleA=0,angleB=90,rad=10")
-
-                mask_0  = np.flip(masks[0], (1))
-                image_0 = np.flip(images[0], (1))
-                # fib_mask_0  = np.flip(fib_masks[0], (1))
-
-                mask_0 = np.rot90(mask_0, k = 1, axes = (0, 1))
-                image_0 = np.rot90(image_0, k = 1, axes = (0, 1))
-                # fib_mask_0 = np.rot90(fib_mask_0, k = 1, axes = (0, 1))
-
-                for clss in range(self.NUM_CLASS):
-                    if mask_0[mask_0 == clss].sum().item() > 3:
-                        mark_mask = mask_0.copy()
-                        mark_mask[mark_mask != clss] = 0
-                        weight_mass_y, weight_mass_x = ndimage.measurements.center_of_mass(mark_mask)
-
-                        ax[1].annotate(f'S{clss}',
-                            xy = (weight_mass_x, weight_mass_y),
-                            fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y - 5),
-                            # arrowprops = dict(facecolor = 'red'),
-                            arrowprops = arrowprops,
-                            bbox = bbox,
-                            color = 'black')
-                        
-                        ax[1].plot([weight_mass_x], [weight_mass_y], marker = ".", color = 'orange')
-
-                for key in range(1, self.NUM_CLASS): 
-                    mask_0[0][key - 1] = key
-                # for fkey in range(4):
-                #     fib_mask_0[0][fkey - 1] = fkey
-
-                ax[0].imshow(image_0, plt.get_cmap('gray'))
-
-                ax[1].imshow(image_0, plt.get_cmap('gray'))
-                ax[1].imshow(mask_0, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
-                ax[1].contour(mask_0, alpha = 0.5)
-                
-                # ax[2].imshow(image_0, plt.get_cmap('gray'))
-                # ax[2].imshow(fib_mask_0, alpha = 0.7, interpolation = None, cmap = colormap,  vmin = 0.5)
+                # ax[slc, 3].imshow(image_slc, plt.get_cmap('gray'))
+                # ax[slc, 3].imshow(fib_mask_slc, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
+                # ax[slc, 3].contour(fib_mask_slc, alpha = 0.5)
 
                 report_title = ''
+                report_title = self.use_scar_threshold(report_title, page, slc, volume_dict_class)
+                report_title = self.write_class_volume(report_title, page, slc, volume_dict_class)
 
-                ################################################################################
-                try:
-                    if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
-                        relVolume = round((FIBv[0] / (FIBv[0] + MYOv[0] + self.smooth)) * 100, 2)
-                        report_title += (f'RelVol of FIB: {relVolume} % ')
-                except:
-                    pass
-                ################################################################################
-
-                for key in range(1, self.NUM_CLASS):
-                    if volume_dict_class[f"Chunk_{self.DICT_CLASS[key]}"][chunk][0] / 1000 > 1:
-                        report_title += (
-                            f'{self.DICT_CLASS[key]}_vol: {volume_dict_class[f"Chunk_{self.DICT_CLASS[key]}"][chunk][0] / 1000} ml, ' 
-                            )
-
-                ax[1].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
+                ax[slc, 2].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
 
                 figure.tight_layout()
-                pp.savefig(figure)
+            pp.savefig(figure)
 
         report_title = ''
-
-        for key in range(1, self.NUM_CLASS):
-            report_title += (
-                f'Full {self.DICT_CLASS[key]} volume: {sum(volume_dict_class[f"Volume_{self.DICT_CLASS[key]}"]) / 1000} ml, \n' 
-                )
-        ################################################################################
-        try:
-            if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
-                related_full_fib_volume = round((
-                    (sum(volume_dict_class[f'Volume_{self.DICT_CLASS[3]}'])) / 
-                    (sum(volume_dict_class[f'Volume_{self.DICT_CLASS[2]}']) + 
-                        sum(volume_dict_class[f'Volume_{self.DICT_CLASS[3]}']) + self.smooth)) * 100, 0)
-                report_title += f'Full relative volume: ≈ {related_full_fib_volume} %'
-        except:
-            pass
-        ################################################################################
+        report_title = self.write_class_volume(report_title, None, None, volume_dict_class)
+        report_title = self.use_scar_threshold(report_title, None, None, volume_dict_class)
 
         fig = plt.figure(figsize = (8, 8))
         text = fig.text(0.2, 0.7, report_title, ha = 'left', va = 'top', size = 14)
@@ -712,6 +660,19 @@ class PdfSaver(MetaParameters):
         pp.savefig(fig)
         
         pp.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -61,7 +61,7 @@ class MetaParameters:
     LVCROPP = True
     BGLVCROPP = True
 
-    # AUGMENTATION = False
+    AUGMENTATION = False
     FREEZE_BN = False
     PRETRAIN = False
     NOISE = False
@@ -83,7 +83,7 @@ class MetaParameters:
     LR = 1e-3
     BT_SZ = 32      # 512 x 512 - max batch_size == 8 if features == 32
     EPOCHS = 1000
-    DROPOUT = 0.2
+    DROPOUT = 0.1
     FEATURES = 16   # 32 - 
     WDC = 1e-4
     EARLY_STOPPING = 50
@@ -97,7 +97,7 @@ class MetaParameters:
                 }
 
     MYOLEVEL_DICT_CLASS = {
-              0: "Background", 1: "Basal", 2: "Medial", 3: "Apical", 4: "Apex",}
+              0: "Background", 1: "Basal", 2: "Medial", 3: "Apical", 4: "Apex", 5: 'Empty'}
 
     BULLEYE_DICT_CLASS = {
                     0: "Background", 
@@ -109,7 +109,7 @@ class MetaParameters:
 
     TARGET_CE_WEIGHTS = torch.FloatTensor([0.1, 0.5, 0.7, 0.9])
     SCAR_CE_WEIGHTS = torch.FloatTensor([0.4, 0.7, 0.5, 0.9])
-    MYOLEVEL_CE_WEIGHTS = torch.FloatTensor([0.1, 0.8, 0.7, 0.9, 0.99])
+    MYOLEVEL_CE_WEIGHTS = torch.FloatTensor([0.1, 0.8, 0.7, 0.9, 2, 0.1])
     BULLEYE_CE_WEIGHTS = torch.FloatTensor(
         [0.1, 
         0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 
@@ -122,8 +122,8 @@ class MetaParameters:
     # DICT_CLASS = BULLEYE_DICT_CLASS
     NUM_CLASS = len(DICT_CLASS)
 
-    CE_WEIGHTS = TARGET_CE_WEIGHTS
-    # CE_WEIGHTS = SCAR_CE_WEIGHTS
+    # CE_WEIGHTS = TARGET_CE_WEIGHTS
+    CE_WEIGHTS = SCAR_CE_WEIGHTS
     # CE_WEIGHTS = MYOLEVEL_CE_WEIGHTS
     # CE_WEIGHTS = BULLEYE_CE_WEIGHTS
 
@@ -327,8 +327,33 @@ class ChooseModelConfig(MetaParameters):
         return self.choose_scheduler_gen
 
 
-class ChooseLossFunction:
-    ...
+class ChooseLossFunction(MetaParameters):
+    def __init__(self):
+        super(MetaParameters, self).__init__()
+        self.print_loss_function()
+
+    @property
+    def choose_loss_function(self):
+        try:
+            loss_function = nn.CrossEntropyLoss(weight = self.CE_WEIGHTS).to(device)
+            # loss_function = FocalLoss(weight = meta.CE_WEIGHTS).to(device)
+            
+            return loss_function
+
+        except:
+            loss_function = nn.FocalLoss().to(device)
+            
+            return loss_function
+
+    @property
+    def loss_function(self):
+        return self.choose_loss_function
+
+    def print_loss_function(self):
+        if self.CE_WEIGHTS is not None:
+            print(f'{self.loss_function} With {self.CE_WEIGHTS} Was Chosen !!!')
+        else:            
+            print(f'{self.loss_function} without CE_WEIGHTS Was Chosen !!!')
 
 
 class ChooseTransform:
@@ -341,20 +366,7 @@ device = ChooseDevice().device
 meta = MetaParameters()
 fdwr = FileDirectoryWorker()
 chklsz = ChooseKernelSize()
-
-########################################################################################################################
-# COMMENTS
-########################################################################################################################
-
-try:
-    loss_function = nn.CrossEntropyLoss(weight = meta.CE_WEIGHTS).to(device)
-    # loss_function = FocalLoss(weight = meta.CE_WEIGHTS).to(device)
-    print(f'{loss_function} With {meta.CE_WEIGHTS} Was Chosen !!!')
-except:
-    # loss_function = nn.CrossEntropyLoss().to(device)
-    loss_function = FocalLoss().to(device)
-    print(f'{loss_function} without CE_WEIGHTS Was Chosen !!!')
-
+loss_function = ChooseLossFunction().loss_function
 
 ########################################################################################################################
 ## Main image transforms in Dataloder
@@ -367,8 +379,8 @@ default_transform = transforms.Compose([
 transform_01 = transforms.Compose([
     transforms.ToPILImage(),
     transforms.RandomRotation((-10, 10), expand = False),
-    transforms.RandomHorizontalFlip(0.7),
-    transforms.RandomVerticalFlip(0.7),
+    transforms.RandomHorizontalFlip(0.5),
+    transforms.RandomVerticalFlip(0.5),
     transforms.ToTensor(),
 ])
 
