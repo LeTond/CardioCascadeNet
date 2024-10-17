@@ -57,12 +57,12 @@ class GetListImages(MetaParameters):
         orig_img_shape = images.shape
 
         if self.mask_type == 'infer_bull_level':
-            templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
+            templates = ReadImages(f'./Dataset/HCM_adult_mask/{self.file_name}').view_matrix
+            # templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
 
         if masks is not None:
             images, masks, templates, self.def_coord = \
             CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
-
         else:
             masks = np.zeros((images.shape))
 
@@ -95,7 +95,8 @@ class GetListImages(MetaParameters):
         orig_img_shape = images.shape
 
         if self.mask_type == 'infer_bull_level':
-            templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
+            # templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
+            templates = ReadImages(f'./Dataset/HCM_adult_Unet2_mask_new/{self.file_name}').view_matrix
 
         if masks is not None:
             images, masks, templates, def_coord = \
@@ -185,7 +186,7 @@ class PredictionMask(MetaParameters):
             predict = np.array(predict, dtype = np.float32)
             
             predict = self.threshhold_myo_level(predict)
-            predict = self.threshhold_prediction(predict)
+            # predict = self.threshhold_scar(predict)
             predict = self.expand_matrix(predict, self.image_shp[0], self.image_shp[1])
             predict = resize(predict, (self.image_shp[0], self.image_shp[1]), anti_aliasing_sigma = False)
             
@@ -207,13 +208,12 @@ class PredictionMask(MetaParameters):
                 else:
                     myo_level = int(list(test_dict.keys())[1])
                     predict[predict != 0] = myo_level
-
             except:
                 pass
 
         return predict
 
-    def threshhold_prediction(self, predict):
+    def threshhold_scar(self, predict):
         try:
             if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
                 pred_fib = predict[predict == 3]            
@@ -472,8 +472,9 @@ class PdfSaver(MetaParameters):
         
         self.images_list = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
         self.masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
+        self.orig_masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
         self.orig_masks_list = ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
-        # self.fib_masks_list = ReadImages(f"/Users/aglevchuk/Documents/PycharmProjects/Unet_Cardiac/BullEyeMapUnet/Dataset/BULLEYE_Unet3_mask_new/{self.file_name}").view_matrix()
+        # self.fib_masks_list = ReadImages(f"./Dataset/HCM_adult_Unet2_mask_new/{self.file_name}").view_matrix
         
         self.images_list = self.images_list.transpose(2, 0, 1)
         self.masks_list = self.masks_list.transpose(2, 0, 1)
@@ -524,28 +525,63 @@ class PdfSaver(MetaParameters):
         return matrix
 
     def add_annotate_class(self, slc, ax, mask_slc):
-        for clss in range(self.NUM_CLASS):
-            if mask_slc[mask_slc == clss].sum().item() > 3:
-                mark_mask = mask_slc.copy()
-                mark_mask[mark_mask != clss] = 0
-                weight_mass_y, weight_mass_x = ndimage.measurements.center_of_mass(mark_mask)
+        if np.max(mask_slc) <= 4:
+            for clss in range(1, 4):
+                if mask_slc[mask_slc == clss].sum().item() > 3:
+                    mark_mask = mask_slc.copy()
+                    mark_mask[mark_mask != clss] = 0
 
-                ax.annotate(f'S{clss}', 
-                            xy = (weight_mass_x, weight_mass_y), 
-                            fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y - 5), 
-                            #  arrowprops = dict(facecolor = 'red'),
-                            arrowprops = self.arrowprops,
-                            bbox = self.bbox, 
-                            color = 'black')
+                    if clss == 1:
+                        weight_mass_y, weight_mass_x = ndimage.measurements.center_of_mass(mark_mask)
 
-                ax.plot([weight_mass_x], [weight_mass_y],  marker = ".", color = 'orange')
+                    else:
+                        clsrf = InstancesFinder(mark_mask, kernel = np.min(mark_mask.shape), num_class = clss)
+                        clusters = clsrf.find_clusters()
+                        max_size = 0
+                        
+                        for i in range(len(clusters[:])):
+                            cluster_size = len(clusters[i]['coords'])
+                            
+                            if cluster_size > len(clusters[max_size]['coords']):
+                                max_size = i
 
-        for key in range(1, self.NUM_CLASS): 
-            mask_slc[0][key - 1] = key
+                            weight_mass_y, weight_mass_x = clusters[max_size]['coords'][len(clusters[max_size]['coords'])//2]
+
+                    ax.annotate(f'{self.SCAR_DICT_CLASS[clss]}', 
+                                xy = (weight_mass_x, weight_mass_y), 
+                                fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y + 5), 
+                                arrowprops = self.arrowprops,
+                                bbox = self.bbox, 
+                                color = 'black')
+
+                    ax.plot([weight_mass_x], [weight_mass_y],  marker = ".", color = 'orange')
+
+            for key in range(1, 4): 
+                mask_slc[0][key - 1] = key
+
+        else:
+            for clss in range(self.NUM_CLASS):
+                if mask_slc[mask_slc == clss].sum().item() > 3:
+                    mark_mask = mask_slc.copy()
+                    mark_mask[mark_mask != clss] = 0
+                    weight_mass_y, weight_mass_x = ndimage.measurements.center_of_mass(mark_mask)
+
+                    ax.annotate(f'S{clss}', 
+                                xy = (weight_mass_x, weight_mass_y), 
+                                fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y - 5), 
+                                #  arrowprops = dict(facecolor = 'red'),
+                                arrowprops = self.arrowprops,
+                                bbox = self.bbox, 
+                                color = 'black')
+
+                    ax.plot([weight_mass_x], [weight_mass_y],  marker = ".", color = 'orange')
+                    
+            for key in range(1, self.NUM_CLASS): 
+                mask_slc[0][key - 1] = key
 
         return ax, mask_slc
 
-    def use_scar_threshold(self, report_title, page = None, slc = None, class_volume = None):
+    def threshold_scar(self, report_title, page = None, slc = None, class_volume = None):
         try:
             if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
                 if page != None and slc != None:
@@ -624,7 +660,7 @@ class PdfSaver(MetaParameters):
 
                 ax[slc, 1], mask_slc = self.add_annotate_class(slc, ax[slc, 1], mask_slc)
                 ax[slc, 2], orig_mask_slc = self.add_annotate_class(slc, ax[slc, 2], orig_mask_slc)
-                # ax[slc, 3], fib_mask_slc = self.add_annotate_class(slc, ax[slc, 2], fib_mask_slc)
+                # ax[slc, 2], fib_mask_slc = self.add_annotate_class(slc, ax[slc, 2], fib_mask_slc)
 
                 ax[slc, 0].imshow(image_slc, plt.get_cmap('gray'))
 
@@ -641,17 +677,17 @@ class PdfSaver(MetaParameters):
                 # ax[slc, 3].contour(fib_mask_slc, alpha = 0.5)
 
                 report_title = ''
-                report_title = self.use_scar_threshold(report_title, page, slc, volume_dict_class)
+                report_title = self.threshold_scar(report_title, page, slc, volume_dict_class)
                 report_title = self.write_class_volume(report_title, page, slc, volume_dict_class)
 
-                ax[slc, 2].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
+                ax[slc, 1].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
 
                 figure.tight_layout()
             pp.savefig(figure)
 
         report_title = ''
         report_title = self.write_class_volume(report_title, None, None, volume_dict_class)
-        report_title = self.use_scar_threshold(report_title, None, None, volume_dict_class)
+        report_title = self.threshold_scar(report_title, None, None, volume_dict_class)
 
         fig = plt.figure(figsize = (8, 8))
         text = fig.text(0.2, 0.7, report_title, ha = 'left', va = 'top', size = 14)
@@ -662,7 +698,155 @@ class PdfSaver(MetaParameters):
         pp.close()
 
 
+class InstancesFinder():
+    def __init__(self, old_matrix, kernel, num_class):
+        self.kernel_sz = kernel
+        self.old_matrix = old_matrix
+        self.extra_symbol = 99
+        self.symbols = list(range(2))
+        self.num_class = num_class
+        self.queue = []
+        self.clusters = []
+        self.min_distance = 1
+        self.min_cluster_size = 1
 
+        # Очередь из символов для поиска кластера
+        self.directions_cluster = self.direction_cluster_genertor()
+
+    def direction_cluster_genertor(self):
+        directions_cluster = []
+        
+        for i in range(1, self.min_distance + 1):
+            directions_cluster.append([0, i])
+            directions_cluster.append([0, -i])
+            directions_cluster.append([i, 0])
+            directions_cluster.append([-i, 0])
+            directions_cluster.append([-i, -i])
+            directions_cluster.append([i, i])
+            directions_cluster.append([-i, i])
+            directions_cluster.append([i, -i])
+
+        return directions_cluster
+
+    def find_clusters(self):
+        # Пустая матрица для пометки символов, которые уже участвовали в поиске кластеров
+        markedSymbols = [[0 for i in range(self.kernel_sz)] for i in range(self.kernel_sz)] 
+        
+        # Перебираем все символы матрицы
+        for i in range(self.kernel_sz):
+            for j in range(self.kernel_sz):
+                # Если символ - extra или помечен - пропускаем
+                if (self.num_class == self.extra_symbol or markedSymbols[i][j] == 3):
+                    continue
+                
+                clusterData = {
+                    'extras': [],
+                    'coords': [],
+                    'squares': []}
+                
+                # Добавляем текущий символ в очередь и помечаем его
+                self.queue.append([i, j])
+                markedSymbols[i][j] = self.num_class
+
+                # Пока в очереди что-то есть - перебираем соседние символы
+                while (self.queue):
+                    # Забираем символ из очереди
+                    coords = self.queue.pop()   
+                    # extra и обычные символы добавляем в разные массивы, тк у них разное поведение
+                    
+                    if (self.old_matrix[coords[0]][coords[1]] != self.extra_symbol):
+                        clusterData['coords'].append(coords)
+                    else:
+                        clusterData['extras'].append(coords)
+
+                    # Перебираем все соседние символы
+                    for direction in self.directions_cluster:
+                        neighbour_coords = [coords[0] + direction[0], coords[1] + direction[1]]
+                        try:
+                            # Если соседний символ такой же или это extra (и не помечен) - добавляем его в очередь и помечаем
+                            if ((self.old_matrix[neighbour_coords[0]][neighbour_coords[1]] == self.num_class or 
+                                self.old_matrix[neighbour_coords[0]][neighbour_coords[1]] == self.extra_symbol) and 
+                            markedSymbols[neighbour_coords[0]][neighbour_coords[1]] == 0):
+                            
+                                self.queue.append(neighbour_coords)
+                                markedSymbols[neighbour_coords[0]][neighbour_coords[1]] = 3
+                        except:
+                                pass
+                    
+                # Берем только те кластеры, у которых длина больше 3 (учитывая extra)
+                if (len(clusterData['coords']) + len(clusterData['extras']) >= (self.min_cluster_size + 1)):
+                    clusterData['symbol'] = self.num_class
+                    self.clusters.append(clusterData)
+                # Снимаем пометки с extra текущего кластера, тк они могут быть частью и других кластеров
+                for coords in clusterData['extras']:
+                    markedSymbols[coords[0]][coords[1]] = 0
+
+        return self.clusters
+
+    def iteration(self):
+        ...
+
+    def new_instance_matrix(self):
+        """
+        Преобразуем обычную 2D маску в instance ndim 
+        """
+        main_matrix = []
+        new_matrix = np.copy(self.new_matrix())
+
+        shp_old = new_matrix.shape
+
+        for clss in np.unique(new_matrix):
+            matrix = np.copy(new_matrix)
+
+            if clss < 3:
+                matrix[matrix != clss] = 0
+                main_matrix.append(matrix)
+            elif clss >= 13: 
+                matrix[matrix != clss] = 0
+                matrix[matrix == clss] = 3
+                main_matrix.append(matrix)
+
+        main_matrix = np.array(main_matrix).transpose(2, 1, 0)
+        
+        shp_new =  main_matrix.shape
+        print(f'Matrix shape was changed from {shp_old} to {shp_new}')
+
+        return main_matrix
+
+    def new_matrix(self):
+        """
+        Для класса self.num_class преобразуем каждый отдельный кластер в новый инстанс 
+        """
+        new_matrix = np.copy(self.old_matrix)
+        cluster = self.find_clusters()
+
+        for i in range(len(cluster[:])):
+            for j in range(1, len(cluster[i]['coords'])):
+
+                new_layer = self.num_class + i + 10 # i - from 0 to count of found classes
+                coord_ = cluster[i]['coords'][j]
+                new_matrix[coord_[0]][coord_[1]] = new_layer
+                
+        return new_matrix
+
+    def threshold_matrix(self):
+        """
+        Для группы пикселей размером <= 3 - назначаем класс 99
+        """
+        new_matrix = np.copy(self.old_matrix)
+        cluster = self.find_clusters()
+
+        for i in range(len(cluster[:])):
+            cluster_size = len(cluster[i]['coords'])
+            print(f' Размер {i + 1}-го кластера в пикселях {cluster_size - 1} ')
+            
+            if len(cluster[i]['coords']) <= 3:
+                for j in range(1, len(cluster[i]['coords'])):
+                    new_layer = 99 # i - from 0 to count of found classes
+                    coord_ = cluster[i]['coords'][j]
+                    new_matrix[coord_[0]][coord_[1]] = new_layer
+                    
+        return new_matrix
 
 
 

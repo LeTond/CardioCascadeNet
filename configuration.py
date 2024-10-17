@@ -65,13 +65,13 @@ class MetaParameters:
     FREEZE_BN = False
     PRETRAIN = False
     NOISE = False
-    EMPTY = False
+    # EMPTY = False
     MULTYGAP = False
     # UNET1 = False
     # UNET2 = False
     # UNET3 = False
-    UNET4 = False
-    UNET5 = False
+    # UNET4 = False
+    # UNET5 = False
     BGCROPP = False
     LVCROPP = False
     BGLVCROPP = False
@@ -97,7 +97,7 @@ class MetaParameters:
                 }
 
     MYOLEVEL_DICT_CLASS = {
-              0: "Background", 1: "Basal", 2: "Medial", 3: "Apical", 4: "Apex", 5: 'Empty'}
+              0: "Background", 1: "Basal", 2: "Medial", 3: "Apical", 4: "Apex"}
 
     BULLEYE_DICT_CLASS = {
                     0: "Background", 
@@ -109,13 +109,12 @@ class MetaParameters:
 
     TARGET_CE_WEIGHTS = torch.FloatTensor([0.1, 0.5, 0.7, 0.9])
     SCAR_CE_WEIGHTS = torch.FloatTensor([0.4, 0.7, 0.5, 0.9])
-    MYOLEVEL_CE_WEIGHTS = torch.FloatTensor([0.1, 0.8, 0.7, 0.9, 2, 0.1])
-    BULLEYE_CE_WEIGHTS = torch.FloatTensor(
-        [0.1, 
-        0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 
-        0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 
-        0.8, 0.8, 0.8, 0.8, 
-        1.2])
+    MYOLEVEL_CE_WEIGHTS = torch.FloatTensor([0.1, 0.8, 0.7, 0.9, 2])
+    BULLEYE_CE_WEIGHTS = torch.FloatTensor([0.1, 
+                                            0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 
+                                            0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 
+                                            0.8, 0.8, 0.8, 0.8, 
+                                            1.2])
 
     DICT_CLASS = SCAR_DICT_CLASS
     # DICT_CLASS = MYOLEVEL_DICT_CLASS
@@ -180,9 +179,6 @@ class ChooseDevice:
         print(self.device)
 
 
-global device
-
-
 class FocalLoss(nn.modules.loss._WeightedLoss):
     def __init__(self, weight = None, gamma = 2,reduction = 'mean'):    #reduction='sum'
         super(FocalLoss, self).__init__(weight,reduction = reduction)
@@ -194,7 +190,7 @@ class FocalLoss(nn.modules.loss._WeightedLoss):
         pt = torch.exp( - ce_loss)
         focal_loss = ((1 - pt) ** self.gamma * ce_loss).mean()
         return focal_loss
-        
+
 
 class ChooseKernelSize(MetaParameters):
     def __init__(self):    
@@ -360,9 +356,9 @@ class ChooseTransform:
     ...
 
 
-
-
+global device
 device = ChooseDevice().device
+
 meta = MetaParameters()
 fdwr = FileDirectoryWorker()
 chklsz = ChooseKernelSize()
@@ -379,27 +375,27 @@ default_transform = transforms.Compose([
 transform_01 = transforms.Compose([
     transforms.ToPILImage(),
     transforms.RandomRotation((-10, 10), expand = False),
-    transforms.RandomHorizontalFlip(0.5),
-    transforms.RandomVerticalFlip(0.5),
+    # transforms.RandomHorizontalFlip(0.5),
+    # transforms.RandomVerticalFlip(0.5),
     transforms.ToTensor(),
 ])
 
 transform_02 = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.RandomVerticalFlip(1.0),
+    # transforms.RandomVerticalFlip(1.0),
     transforms.ToTensor(),
 ])
 
 transform_03 = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.RandomHorizontalFlip(1.0),
+    # transforms.RandomHorizontalFlip(1.0),
     transforms.ToTensor(),
 ])
 
 transform_04 = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.RandomHorizontalFlip(0.5),
-    transforms.RandomVerticalFlip(0.5),
+    # transforms.RandomHorizontalFlip(0.5),
+    # transforms.RandomVerticalFlip(0.5),
     transforms.RandomAffine(degrees = (-2, 2), translate = (0.05, 0.25), scale = (0.75, 1.25)),
     transforms.ToTensor(),
 ])

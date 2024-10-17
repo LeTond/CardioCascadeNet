@@ -39,7 +39,7 @@ class Inference(MetaParameters):
         
         masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'default').get_predicted_mask
 
-        NiftiSaver(masks_list, file_name, self.unet1_infer_dir).save_nifti
+        # NiftiSaver(masks_list, file_name, self.unet1_infer_dir).save_nifti
         # PdfSaver(file_name, self.dataset_path, self.unet1_infer_dir).save_pdf
 
         return masks_list
@@ -74,7 +74,7 @@ class Inference(MetaParameters):
         masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'close_cropp').get_predicted_mask
 
         NiftiSaver(masks_list, file_name, self.unet3_infer_dir).save_nifti
-        PdfSaver(file_name, self.dataset_path, self.unet3_infer_dir).save_pdf
+        # PdfSaver(file_name, self.dataset_path, self.unet3_infer_dir).save_pdf
 
         return masks_list
 
@@ -91,7 +91,7 @@ class Inference(MetaParameters):
         masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'cropp').get_predicted_mask
 
         NiftiSaver(masks_list, file_name, self.unet4_infer_dir).save_nifti
-        PdfSaver(file_name, self.dataset_path, self.unet4_infer_dir).save_pdf
+        # PdfSaver(file_name, self.dataset_path, self.unet4_infer_dir).save_pdf
 
         return masks_list
 
@@ -196,6 +196,8 @@ class Inference(MetaParameters):
             checkpoint,
             f'./Results/{to_model}/{to_model}_model.pth')
 
+        print(f'weights was pull from {from_model} and drop to {to_model}')
+
     def run_process(self):
         # dataset_list = ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_origin_new/').get_dataset_list()
         # dataset_list = ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_origin_new/').get_file_path_list()
@@ -210,8 +212,14 @@ class Inference(MetaParameters):
         subname = 'default'
         dict_sub_names = self.create_dict_subnames(subname)
 
-        self.rewrite_weights('BULLEYE', 'ALMAZ', 'Unet4_Fold_full/')
-        self.rewrite_weights('BULLEYE', 'ALMAZ', 'Unet5_Fold_full/')
+        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet1_Fold_full/')
+        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet2_Fold_full/')
+        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet3_Fold_full/')
+        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet4_Fold_full/')
+        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet5_Fold_full/')
+
+        # self.rewrite_weights('BULLEYE', 'ALMAZ', 'Unet5_Fold_full/')
+        # self.rewrite_weights('BULLEYE', 'ALMAZ', 'Unet4_Fold_full/')
 
         for file_name in dataset_list:
             if file_name.endswith('.nii'):

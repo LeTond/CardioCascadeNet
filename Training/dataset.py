@@ -93,7 +93,6 @@ class GetData(MetaParameters):
     def cropp_gap(self):
         if self.MULTYGAP:
             cropp_gap = random.choice([6, 7, 8, 9, 10])
-        
         else:
             cropp_gap = 8
 
@@ -103,11 +102,9 @@ class GetData(MetaParameters):
         if self.EMPTY is False and mask[mask > 0].sum().item() == 0:
             print(f"Subject {sub_name} slice {slc} was passed because EMPY is FALSE")
             return False
-
         elif (mask > (self.NUM_CLASS - 1)).any():
             print(f"Subject {sub_name} slice {slc} has class out of range class {self.NUM_CLASS}")
             return False
-        
         else:
             return True
 
@@ -121,8 +118,7 @@ class GetData(MetaParameters):
             sub_name = file_name.replace('.nii', '')
 
             if self.mask_type == 'train_bull_level':
-                templates = ReadImages(f"{self.MASKS_DIR}/{file_name}").view_matrix
-
+                templates = masks.copy()
             else:
                 templates = images.copy()
 
@@ -140,16 +136,16 @@ class GetData(MetaParameters):
 
                 try:
                     image, mask, template = \
-                    Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
-                except:
-                    print(f'Data Augmentation Problem with {sub_name}')
-            
-                try:
-                    image, mask, template = \
                     PreprocessData(image, mask, template, unet_type = None, mask_type = self.mask_type).preprocessing
                 except:
                     print(f'Data Preprocessing Problem with {sub_name}')
                 
+                # try:
+                #     image, mask, template = \
+                #     Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
+                # except:
+                #     print(f'Data Augmentation Problem with {sub_name}')
+
                 try:
                     image, mask, template = \
                     MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing

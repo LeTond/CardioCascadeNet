@@ -1,4 +1,4 @@
- # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
 Version: 1.2
@@ -7,14 +7,14 @@ Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
+import sys
+import os
 
 import torch
 import random 
-import sys
 import time
 import cv2
 import matplotlib
-import os
 import pickle
 import platform
 
@@ -291,76 +291,7 @@ class MaskPreprocessing(MetaParameters):
             image = np.array(image.reshape(image.shape[0], image.shape[1], 1), dtype = np.float32)
         
         return image, self.mask, self.template
-
-    @property
-    def myo_level_preprocessing(self):
-        mask = self.mask.copy()
-        template = np.zeros((self.template.shape))
-
-        for basal in range(1, 7):
-            if (mask == basal).any():
-                mask[mask == basal] = 1
-                mask[mask != basal] = 1
-        for medial in range(7, 13):
-            if (mask == medial).any():
-                mask[mask == medial] = 2
-                mask[mask != medial] = 2
-        for apical in range(13, 17):
-            if (mask == apical).any():
-                mask[mask == apical] = 3
-                mask[mask != apical] = 3
-        for apex in range(17, 18):
-            if (mask == apex).any():
-                mask[mask == apex] = 4
-                mask[mask != apex] = 4
-
-        return self.image, mask, template
-
-    @property
-    def train_bull_level_preprocessing(self):
-        template = self.mask.copy()
-        mask = self.mask.copy()
-
-        template[template == 0] = 40
-        template[template != 40] = 60
-
-        for basal in range(1, 7):
-            if (mask == basal).any():
-                template[template == 40] = 1
-        for medial in range(7, 13):
-            if (mask == medial).any():
-                template[template == 40] = 2
-        for apical in range(13, 17): 
-            if (mask == apical).any():
-                template[template == 40] = 3
-        for apex in range(17, 18):
-            if (mask == apex).any():
-                template[template == 40] = 4
-
-        template[template == 60] = 0
-        template = template / (len(self.BULLEYE_DICT_CLASS) - 1)
-        
-        return self.image, self.mask, template
-
-    @property
-    def infer_bull_level_preprocessing(self):
-        mask = self.mask.copy()                 #Unet4_mask MYO_LEVEL
-        template = self.template.copy()         #Unet3_mask SCAR
-
-        template[template == 1] = 0
-        myo_lvl = round(np.max(template))
-
-        if mask[mask == 1].sum().item() == 0:
-            myo_lvl = 4
-
-        template[template > 0] = 60
-        template[template == 0] = myo_lvl
-        template[template == 60] = 0
-
-        template = template / (len(self.BULLEYE_DICT_CLASS) - 1)
-
-        return self.image, self.mask, template
-
+    
     @property
     def choose_mask_preprocessing(self):
         if self.mask_type == 'train_bull_level':
@@ -381,6 +312,74 @@ class MaskPreprocessing(MetaParameters):
     @property
     def mask_preprocessing(self):
         return self.choose_mask_preprocessing
+
+    @property
+    def myo_level_preprocessing(self):
+        mask = self.mask.copy()
+
+        for basal in range(1, 7):
+            if (mask == basal).any():
+                mask[mask == basal] = 1
+                mask[mask != basal] = 1
+        for medial in range(7, 13):
+            if (mask == medial).any():
+                mask[mask == medial] = 2
+                mask[mask != medial] = 2
+        for apical in range(13, 17):
+            if (mask == apical).any():
+                mask[mask == apical] = 3
+                mask[mask != apical] = 3
+        for apex in range(17, 18):
+            if (mask == apex).any():
+                mask[mask == apex] = 4
+                mask[mask != apex] = 4
+
+        return self.image, mask, self.template
+
+    @property
+    def train_bull_level_preprocessing(self):
+        template = self.template.copy()
+        mask = self.mask.copy()
+
+        template[template == 0] = 40
+        template[template != 40] = 60
+
+        for basal in range(1, 7):
+            if (mask == basal).any():
+                template[template == 40] = 1
+        for medial in range(7, 13):
+            if (mask == medial).any():
+                template[template == 40] = 2
+        for apical in range(13, 17): 
+            if (mask == apical).any():
+                template[template == 40] = 3
+        for apex in range(17, 18):
+            if (mask == apex).any():
+                template[template == 40] = 4
+
+        template[template == 60] = 0
+        template = template / len(self.MYOLEVEL_DICT_CLASS)
+
+        return self.image, self.mask, template
+
+    @property
+    def infer_bull_level_preprocessing(self):
+        mask = self.mask.copy()                 #Unet4_mask MYO_LEVEL
+        template = self.template.copy()         #Unet3_mask SCAR
+
+        template[template == 1] = 0
+        template[template > 0] = 60
+
+        myo_lvl = round(np.max(mask))        
+        if self.template[self.template == 1].sum().item() == 0:
+            myo_lvl = 4
+
+        template[template == 0] = myo_lvl
+        template[template == 60] = 0
+
+        template = template / len(self.MYOLEVEL_DICT_CLASS)
+
+        return self.image, self.mask, template
 
 
 class Augmentation(MetaParameters):
@@ -416,7 +415,6 @@ class Augmentation(MetaParameters):
     def angle_list(self):
         if self.AUGMENTATION:
             angle_list = list(set([random.choice([0, 90, 180, 270]) for i in range(2)]))
-        
         else: 
             angle_list = [0]
 
@@ -436,6 +434,10 @@ class Augmentation(MetaParameters):
             template = rotate_image(self.template, angle)
         else:
             template = None
+
+        ViewData().view_img(image)
+        ViewData().view_img(mask)
+        ViewData().view_img(template)
 
         return image, mask, template
 

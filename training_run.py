@@ -159,7 +159,7 @@ if __name__ == '__main__':
     valid_ds_origin, valid_ds_mask, valid_ds_template, valid_ds_names = GetData(valid_list, False).generated_data_list
 
     train_set = MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, default_transform)
-    for i in range(2):
+    for i in range(3):
         train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_04)
         train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_01)
         # train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_05)
