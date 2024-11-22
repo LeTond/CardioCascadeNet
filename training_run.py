@@ -160,7 +160,7 @@ if __name__ == '__main__':
 
     train_set = MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, default_transform)
     for i in range(3):
-        train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_04)
+        # train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_04)
         train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_01)
         # train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_05)
         # train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_06)

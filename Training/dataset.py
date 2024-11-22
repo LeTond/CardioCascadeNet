@@ -140,11 +140,11 @@ class GetData(MetaParameters):
                 except:
                     print(f'Data Preprocessing Problem with {sub_name}')
                 
-                # try:
-                #     image, mask, template = \
-                #     Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
-                # except:
-                #     print(f'Data Augmentation Problem with {sub_name}')
+                try:
+                    image, mask, template = \
+                    Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
+                except:
+                    print(f'Data Augmentation Problem with {sub_name}')
 
                 try:
                     image, mask, template = \
@@ -153,12 +153,41 @@ class GetData(MetaParameters):
                     print(f'Data MaskPreprocessing Problem with {sub_name}')
 
                 if self.check_mask(mask, sub_name, slc):    
+
+                    ########################################################################
+                    # image = self.patch_unfolder(image)
+                    # template = self.patch_unfolder(template)
+                    # mask = self.patch_unfolder(mask)
+
+                    # for i in range(16):
+                    #     list_images.append(image[i, :, :])
+                    #     list_masks.append(mask[i, :, :])
+                    #     list_templates.append(template[i, :, :])
+                    #     list_names.append(f'{sub_name} Slice {images.shape[2] - slc}')
+                    ########################################################################
                     list_images.append(image)
                     list_masks.append(mask)
                     list_templates.append(template)
                     list_names.append(f'{sub_name} Slice {images.shape[2] - slc}')
+                    ########################################################################
 
         return list_images, list_masks, list_templates, list_names
+
+    @staticmethod
+    def patch_unfolder(matrix):
+        matrix = np.expand_dims(matrix, 0)
+        matrix = matrix.transpose(0, 3, 1, 2)
+        matrix = torch.from_numpy(matrix)
+
+        kc, kh, kw = 1, 64, 64  # kernel size
+        dc, dh, dw = 1, 64, 64  # stride
+
+        matrix = matrix.unfold(1, kc, dc).unfold(2, kh, dh).unfold(3, kw, dw)
+        matrix = matrix.contiguous().view(matrix.size(0), -1, kc, kh, kw)
+
+        matrix = matrix[0, :, 0, :, :]
+
+        return matrix
 
     @property
     def generated_data_list(self):
@@ -186,7 +215,6 @@ class GetData(MetaParameters):
                         list_names.append(sub_names[slc])
                 except:
                     pass 
-
 
         # for i in range(1):
         #     with Pool(processes=4) as pool:
@@ -220,6 +248,7 @@ class MyDataset(Dataset, MetaParameters):
         self.masks = ds_masks
         self.templates = ds_templates
         self.names = ds_names
+        # self.kernel_size = chklsz.kernel_size(unet_type = None) // 4
         self.kernel_size = chklsz.kernel_size(unet_type = None)
 
         for i in range(len(self.images)):

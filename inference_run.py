@@ -7,13 +7,27 @@ Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
-
 from Inference.inference import *
 from Preprocessing.preprocessing import ReadImages
 from configuration import *
 from Preprocessing.split_dataset import *
 
-from time import time
+import time
+
+
+class MeasureTime:
+    def __init__(self):
+        print('> Декоратор с аргументами __init__:')
+
+    def __call__(self, func):
+        def wrapper(*args, **kwargs):
+        
+            start = time.time()
+            func(*args, **kwargs)
+            end = time.time()
+            print(f'Время выполнения сегментации: {end - start} с')
+        
+        return wrapper
 
 
 class Inference(MetaParameters):
@@ -26,6 +40,7 @@ class Inference(MetaParameters):
         self.unet5_infer_dir = self.NEW_UNET5_MASK_PATH
         self.dataset_path = self.NEW_DATA_PATH
         self.checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
+        # self.checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth', map_location = torch.device('cpu'))
 
     def nifti_unet1_inference(self, file_name, masks_list = None):
         fdwr.create_dir(project_name = self.unet1_infer_dir)
@@ -57,7 +72,7 @@ class Inference(MetaParameters):
         masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'cropp').get_predicted_mask
         
         NiftiSaver(masks_list, file_name, self.unet2_infer_dir).save_nifti
-        # PdfSaver(file_name, self.dataset_path, self.unet2_infer_dir).save_pdf
+        PdfSaver(file_name, self.dataset_path, self.unet2_infer_dir).save_pdf
         
         return masks_list
 
@@ -74,7 +89,7 @@ class Inference(MetaParameters):
         masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'close_cropp').get_predicted_mask
 
         NiftiSaver(masks_list, file_name, self.unet3_infer_dir).save_nifti
-        # PdfSaver(file_name, self.dataset_path, self.unet3_infer_dir).save_pdf
+        PdfSaver(file_name, self.dataset_path, self.unet3_infer_dir).save_pdf
 
         return masks_list
 
@@ -90,7 +105,7 @@ class Inference(MetaParameters):
         
         masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'cropp').get_predicted_mask
 
-        NiftiSaver(masks_list, file_name, self.unet4_infer_dir).save_nifti
+        # NiftiSaver(masks_list, file_name, self.unet4_infer_dir).save_nifti
         # PdfSaver(file_name, self.dataset_path, self.unet4_infer_dir).save_pdf
 
         return masks_list
@@ -107,8 +122,8 @@ class Inference(MetaParameters):
         
         masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'cropp').get_predicted_mask
 
-        NiftiSaver(masks_list, file_name, self.unet5_infer_dir).save_nifti
-        PdfSaver(file_name, self.dataset_path, self.unet5_infer_dir).save_pdf
+        # NiftiSaver(masks_list, file_name, self.unet5_infer_dir).save_nifti
+        # PdfSaver(file_name, self.dataset_path, self.unet5_infer_dir).save_pdf
 
     def dicom_unet1_inference(self, file_name, def_coord = None):
         fdwr.create_dir(project_name = self.unet1_infer_dir)
@@ -185,6 +200,7 @@ class Inference(MetaParameters):
     def rewrite_weights(self, from_model, to_model, unet_model):
         checkpoint1 = torch.load(f'./Results/{from_model}/{from_model}_model.pth')
         checkpoint1 = checkpoint1[f'Net_{from_model}_{unet_model}']
+        # checkpoint1 = checkpoint1[f'Net_{from_model}_Unet2_Fold_full/']
 
         model = checkpoint1['Model']
         model.load_state_dict(checkpoint1['weights'])  
@@ -198,11 +214,14 @@ class Inference(MetaParameters):
 
         print(f'weights was pull from {from_model} and drop to {to_model}')
 
+    @MeasureTime()
     def run_process(self):
         # dataset_list = ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_origin_new/').get_dataset_list()
         # dataset_list = ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_origin_new/').get_file_path_list()
         jsnlst = JsonFoldList()
         dataset_list = jsnlst.load_dataset_list('test_list')
+        # dataset_list = jsnlst.load_dataset_list('train_list')
+        # dataset_list = jsnlst.load_dataset_list('valid_list')
         jsnlst.pprint('test_list')
 
         unet1_coord_list, unet2_coord_list = [], []
@@ -223,9 +242,12 @@ class Inference(MetaParameters):
 
         for file_name in dataset_list:
             if file_name.endswith('.nii'):
-                if self.UNET1 is True:
-                    masks_list_01 = self.nifti_unet1_inference(file_name)
-                    print(f'New subject {file_name} was saved with U-net1 Model')
+                # if self.UNET1 is True:
+                    # masks_list_01 = self.nifti_unet1_inference(file_name)
+                    # print(f'New subject {file_name} was saved with U-net1 Model')
+
+                masks_list_01 = ReadImages(f"./Dataset/HCM_adult_Unet1_mask_new/{file_name}").view_matrix
+
 
                 if self.UNET2 is True:
                     masks_list_02 = self.nifti_unet2_inference(file_name, masks_list_01)
@@ -246,49 +268,52 @@ class Inference(MetaParameters):
         ##TODO: DICOM inference work only if get mask info from predicted and saved mask into preview directory
         ##TODO: should add while Patient.name == FixPatient.name: continiue else: def_coord_list = [] coord_x, coord_y = 0, 0
         ##TODO: It should be union into one HxWxN matrix 
-        for file_name in dataset_list:
-            if file_name.endswith('.dcm') and self.UNET1 is True:
-                masks_list = self.dicom_unet1_inference(file_name)
-                masks_list_01.append(masks_list)
-                unet1_coord_list.append(self.get_default_coord(file_name, None, np.array(masks_list), unet_type = 'default'))
-                print(f'New subject {file_name} was saved with U-net1 Model')
+        try: 
+            for file_name in dataset_list:
+                if file_name.endswith('.dcm') and self.UNET1 is True:
+                    masks_list = self.dicom_unet1_inference(file_name)
+                    masks_list_01.append(masks_list)
+                    unet1_coord_list.append(self.get_default_coord(file_name, None, np.array(masks_list), unet_type = 'default'))
+                    print(f'New subject {file_name} was saved with U-net1 Model')
 
-        for file_name in dataset_list:
-            for coord in unet1_coord_list:
-                coord_x += coord[0]
-                coord_y += coord[1]
+            for file_name in dataset_list:
+                for coord in unet1_coord_list:
+                    coord_x += coord[0]
+                    coord_y += coord[1]
 
-            coord_x = coord_x // len(unet1_coord_list)
-            coord_y = coord_y // len(unet1_coord_list)
-            unet1_coord = [coord_x, coord_y]
+                coord_x = coord_x // len(unet1_coord_list)
+                coord_y = coord_y // len(unet1_coord_list)
+                unet1_coord = [coord_x, coord_y]
 
-            if file_name.endswith('.dcm') and self.UNET2 is True:
-                masks_list = self.dicom_unet2_inference(file_name, unet1_coord, np.array(masks_list_01))
-                masks_list_02.append(masks_list)
-                unet2_coord_list.append(self.get_cropp_coord(file_name, unet1_coord, np.array(masks_list), unet_type = 'cropp'))
-                print(f'New subject {file_name} was saved with U-net2 Model')
+                if file_name.endswith('.dcm') and self.UNET2 is True:
+                    masks_list = self.dicom_unet2_inference(file_name, unet1_coord, np.array(masks_list_01))
+                    masks_list_02.append(masks_list)
+                    unet2_coord_list.append(self.get_cropp_coord(file_name, unet1_coord, np.array(masks_list), unet_type = 'cropp'))
+                    print(f'New subject {file_name} was saved with U-net2 Model')
 
-        coord_x, coord_y = 0, 0
+            coord_x, coord_y = 0, 0
 
-        for file_name in dataset_list:
-            for coord in unet2_coord_list:
-                coord_x += coord[0]
-                coord_y += coord[1]
+            for file_name in dataset_list:
+                for coord in unet2_coord_list:
+                    coord_x += coord[0]
+                    coord_y += coord[1]
 
-            coord_x = coord_x // len(unet2_coord_list)
-            coord_y = coord_y // len(unet2_coord_list)
-            unet2_coord = [coord_x, coord_y]
+                coord_x = coord_x // len(unet2_coord_list)
+                coord_y = coord_y // len(unet2_coord_list)
+                unet2_coord = [coord_x, coord_y]
 
-            if file_name.endswith('.dcm') and self.UNET3 is True:
-                self.dicom_unet3_inference(file_name, unet2_coord, np.array(masks_list_02))
-                print(f'New subject {file_name} was saved with U-net3 Model')
+                if file_name.endswith('.dcm') and self.UNET3 is True:
+                    self.dicom_unet3_inference(file_name, unet2_coord, np.array(masks_list_02))
+                    print(f'New subject {file_name} was saved with U-net3 Model')
 
-        for file_name in dataset_list:
-            if file_name.endswith('.dcm') and self.UNET3 is True:
-                masks_01 = self.dicom_unet1_inference(file_name)
-                masks_02 = self.dicom_unet2_inference(file_name, unet1_coord, np.array(masks_01))
-                self.dicom_unet3_inference(file_name, unet2_coord, np.array(masks_02))
-
+            for file_name in dataset_list:
+                if file_name.endswith('.dcm') and self.UNET3 is True:
+                    masks_01 = self.dicom_unet1_inference(file_name)
+                    masks_02 = self.dicom_unet2_inference(file_name, unet1_coord, np.array(masks_01))
+                    self.dicom_unet3_inference(file_name, unet2_coord, np.array(masks_02))
+        
+        except ZeroDivisionError:
+            pass
 
 
 if __name__ == "__main__":

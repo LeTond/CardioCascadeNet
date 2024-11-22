@@ -4,7 +4,11 @@ from Preprocessing.split_dataset import *
 
 jsnlst = JsonFoldList()
 dataset_list = jsnlst.load_dataset_list('test_list')
+# dataset_list = jsnlst.load_dataset_list('train_list')
+# dataset_list = jsnlst.load_dataset_list('valid_list')
 jsnlst.pprint('test_list')
+# jsnlst.pprint('train_list')
+# jsnlst.pprint('valid_list')
 
 
 class CountRelVolume(MetaParameters):

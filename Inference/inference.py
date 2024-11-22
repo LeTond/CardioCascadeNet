@@ -57,8 +57,8 @@ class GetListImages(MetaParameters):
         orig_img_shape = images.shape
 
         if self.mask_type == 'infer_bull_level':
-            templates = ReadImages(f'./Dataset/HCM_adult_mask/{self.file_name}').view_matrix
-            # templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
+            # templates = ReadImages(f'./Dataset/HCM_adult_mask/{self.file_name}').view_matrix
+            templates = ReadImages(f'./Dataset/ALMAZ_Unet2_mask_new/{self.file_name}').view_matrix
 
         if masks is not None:
             images, masks, templates, self.def_coord = \
@@ -171,6 +171,40 @@ class PredictionMask(MetaParameters):
 
         return predict, image
 
+    @staticmethod
+    def patch_unfolder(matrix):
+        matrix = np.expand_dims(matrix, 0)
+        matrix = matrix.transpose(0, 3, 1, 2)
+        matrix = torch.from_numpy(matrix)
+
+        kc, kh, kw = 1, 64, 64  # kernel size
+        dc, dh, dw = 1, 64, 64  # stride
+
+        matrix = matrix.unfold(1, kc, dc).unfold(2, kh, dh).unfold(3, kw, dw)
+        unfold_shape = matrix.size()
+        matrix = matrix.contiguous().view(matrix.size(0), -1, kc, kh, kw)
+
+        matrix = matrix[0, :, 0, :, :]
+
+        return matrix, unfold_shape
+
+    @staticmethod
+    def patch_folder(matrix, unfold_shape):
+        matrix = np.expand_dims(matrix, 0)
+        matrix = np.expand_dims(matrix, 0)
+        matrix = torch.from_numpy(matrix)
+        patches_orig = matrix.view(unfold_shape)
+
+        output_c = unfold_shape[1] * unfold_shape[4]
+        output_h = unfold_shape[2] * unfold_shape[5]
+        output_w = unfold_shape[3] * unfold_shape[6]
+
+        patches_orig = patches_orig.permute(0, 1, 4, 2, 5, 3, 6).contiguous()
+        patches_orig = patches_orig.view(1, output_c, output_h, output_w)
+        predict = patches_orig[0, 0, :, :]
+
+        return predict
+
     @property
     def get_predicted_mask(self):
         mask_list = []
@@ -180,13 +214,39 @@ class PredictionMask(MetaParameters):
             image = self.images[slc]
             template = self.templates[slc]
             
-            image = np.array([image, template], dtype = np.float32)[:, :, :, 0]            
+            ########################################################################
+            # image, unfold_shape = self.patch_unfolder(image)
+            # template, unfold_shape_02 = self.patch_unfolder(template)
+
+            # image = np.array(image, dtype = np.float32)
+            # template = np.array(template, dtype = np.float32)
+            # shp = image.shape
+
+            # image = np.array([image, template], dtype = np.float32)[:, :, :, :]
+            # image = image.transpose(1, 0, 2, 3)
+
+            # new_images = np.zeros((shp[0], 1, shp[1], shp[2]))
+            
+            # for i in range(shp[0]):
+            #     img = image[i, :, :, :]
+            #     new_images[i, :, :, :] = self.predict(img)[0]
+
+            # predict = self.patch_folder(new_images, unfold_shape)
+
+            # predict = np.reshape(predict, (self.kernel_size, self.kernel_size))
+            # predict = np.array(predict, dtype = np.float32)
+            ########################################################################
+
+            # if not patch_maker
+            ########################################################################
+            image = np.array([image, template], dtype = np.float32)[:, :, :, 0]
             predict, image = self.predict(image)
             predict = np.reshape(predict, (self.kernel_size, self.kernel_size))
             predict = np.array(predict, dtype = np.float32)
-            
+            ########################################################################
+
             predict = self.threshhold_myo_level(predict)
-            # predict = self.threshhold_scar(predict)
+            predict = self.threshhold_scar(predict)
             predict = self.expand_matrix(predict, self.image_shp[0], self.image_shp[1])
             predict = resize(predict, (self.image_shp[0], self.image_shp[1]), anti_aliasing_sigma = False)
             

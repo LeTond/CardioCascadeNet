@@ -427,6 +427,7 @@ class Augmentation(MetaParameters):
     @property
     def rotate_2d(self):
         angle = self.angle
+        
         image = rotate_image(self.image, angle)
         mask = rotate_image(self.mask, angle)
 
@@ -435,9 +436,9 @@ class Augmentation(MetaParameters):
         else:
             template = None
 
-        ViewData().view_img(image)
-        ViewData().view_img(mask)
-        ViewData().view_img(template)
+        # ViewData().view_img(image)
+        # ViewData().view_img(mask)
+        # ViewData().view_img(template)
 
         return image, mask, template
 

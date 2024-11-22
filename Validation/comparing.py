@@ -14,7 +14,6 @@ from scipy.ndimage import _ni_support
 from scipy.spatial.distance import directed_hausdorff
 from medpy import metric
 from scipy.ndimage.morphology import distance_transform_edt, binary_erosion, generate_binary_structure
-# from sklearn.metrics import confusion_matrix
 
 import numpy as np
 import nibabel as nib
@@ -83,12 +82,12 @@ class CompareMatrix(MetaParameters):
                 self.TP = (self.label[:, :, slc] * self.prediction[:, :, slc]).sum()
                 self.FN = np.abs(self.GT - self.TP)
                 self.FP = np.abs(self.CM - self.TP)
-            
-                # print(f'{self.sub_name()}: FN pixels {self.FN}, FP pixels {self.FP}, TP pixels: {self.TP}')
-                # print(f'{self.sub_name()} Slice: {self.length - slc} Dice = {self.dice()}')
-                list_dsc.append(self.dice())
+        
+            # print(f'{self.sub_name()}: FN pixels {self.FN}, FP pixels {self.FP}, TP pixels: {self.TP}')
+            # print(f'{self.sub_name()} Slice: {self.length - slc} Dice = {self.dice()}')
+            list_dsc.append(self.dice())
 
-        # print(f"Sub {self.sub_name()}: {list_dsc}")
+        print(f"Sub {self.sub_name()}: {list_dsc}")
 
         return list_dsc
 

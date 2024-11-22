@@ -22,11 +22,10 @@ for key in range(1, meta.NUM_CLASS):
 	summ_dsc_ps = []
 
 	for lst in list_:	
-		# path_to_label = f'./Dataset/HCM_adult_mask/{lst}'
 		# path_to_label = f'./Dataset/ALMAZ_mask/{lst}'
-		path_to_label = f'./Dataset/ALMAZ_mask/{lst}'
-		path_to_prediction = f'./Dataset/ALMAZ_Unet3_mask_new/{lst}'
-		# path_to_prediction = f'./Dataset/HCM_adult_Unet2_mask_new/{lst}'
+		path_to_label = f'./Dataset/HCM_adult_mask/{lst}'
+		# path_to_label = f'./Dataset/BULLEYE_mask/{lst}'
+		path_to_prediction = f'./Dataset/HCM_adult_Unet2_mask_new/{lst}'
 		# path_to_prediction = f'./Dataset/ALMAZ_Unet3_mask_new/{lst}'
 		path_to_bull_templs = f'./Dataset/BULLEYE_masks_etalon/{lst}'
 

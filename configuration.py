@@ -31,6 +31,7 @@ import albumentations as A
 from torch import nn
 from torch.utils.data import DataLoader
 from sklearn import preprocessing  # pip install scikit-learn
+from torchsummary import summary
 
 from Preprocessing.dirs_logs import FileDirectoryWorker
 
@@ -61,17 +62,17 @@ class MetaParameters:
     LVCROPP = True
     BGLVCROPP = True
 
-    AUGMENTATION = False
+    # AUGMENTATION = False
     FREEZE_BN = False
-    PRETRAIN = False
+    # PRETRAIN = False
     NOISE = False
-    # EMPTY = False
-    MULTYGAP = False
+    EMPTY = False
+    # MULTYGAP = False
     # UNET1 = False
     # UNET2 = False
     # UNET3 = False
-    # UNET4 = False
-    # UNET5 = False
+    UNET4 = False
+    UNET5 = False
     BGCROPP = False
     LVCROPP = False
     BGLVCROPP = False
@@ -86,7 +87,7 @@ class MetaParameters:
     DROPOUT = 0.1
     FEATURES = 16   # 32 - 
     WDC = 1e-4
-    EARLY_STOPPING = 50
+    EARLY_STOPPING = 20
     TMAX = 50
     SHUFFLE = True
     # CLIP_RATE = [0.1, 0.9]
@@ -108,7 +109,10 @@ class MetaParameters:
                     }
 
     TARGET_CE_WEIGHTS = torch.FloatTensor([0.1, 0.5, 0.7, 0.9])
+
+    # SCAR_CE_WEIGHTS = torch.FloatTensor([0.4, 0.7, 0.5, 0.9])
     SCAR_CE_WEIGHTS = torch.FloatTensor([0.4, 0.7, 0.5, 0.9])
+    
     MYOLEVEL_CE_WEIGHTS = torch.FloatTensor([0.1, 0.8, 0.7, 0.9, 2])
     BULLEYE_CE_WEIGHTS = torch.FloatTensor([0.1, 
                                             0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 
@@ -128,9 +132,9 @@ class MetaParameters:
 
     """ Project configuration """
     FOLD_NAME = 'full'  # [01:05] xor full
-    DATASET_NAME = 'ALMAZ'
+    # DATASET_NAME = 'ALMAZ'
     # DATASET_NAME = 'BULLEYE'
-    # DATASET_NAME = 'HCM_adult'
+    DATASET_NAME = 'HCM_adult'
     
     MODEL_NAME = 'model_best'
     DATASET_DIR = './Dataset/'
@@ -163,6 +167,7 @@ class ChooseDevice:
     def __device():
         if torch.backends.mps.is_available():
             device = torch.device('mps')
+            # device = torch.device('cpu')
         elif torch.cuda.is_available():
             device = torch.device('cuda')
         else:
@@ -259,6 +264,7 @@ class ChooseModelConfig(MetaParameters):
         if self.PRETRAIN:    
             try:
                 checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
+                # checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth', map_location = torch.device('cpu'))
                 checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.model_key}']
 
                 # checkpoint = torch.load(f'./Results/ALMAZ/ALMAZ_model.pth')
@@ -279,6 +285,9 @@ class ChooseModelConfig(MetaParameters):
             # model = SegNet().to(device=device)
 
         return model
+
+    def summary_params(self):
+        summary(self.choose_train_model, input_size = (2, 64, 64))
 
     @property
     def freeze_model_bn(self):
@@ -374,9 +383,9 @@ default_transform = transforms.Compose([
 
 transform_01 = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.RandomRotation((-10, 10), expand = False),
-    # transforms.RandomHorizontalFlip(0.5),
-    # transforms.RandomVerticalFlip(0.5),
+    transforms.RandomRotation((-5, 5), expand = False),
+    transforms.RandomHorizontalFlip(0.5),
+    transforms.RandomVerticalFlip(0.5),
     transforms.ToTensor(),
 ])
 
@@ -394,9 +403,9 @@ transform_03 = transforms.Compose([
 
 transform_04 = transforms.Compose([
     transforms.ToPILImage(),
-    # transforms.RandomHorizontalFlip(0.5),
-    # transforms.RandomVerticalFlip(0.5),
-    transforms.RandomAffine(degrees = (-2, 2), translate = (0.05, 0.25), scale = (0.75, 1.25)),
+    transforms.RandomHorizontalFlip(0.5),
+    transforms.RandomVerticalFlip(0.5),
+    transforms.RandomAffine(degrees = (-2, 2), translate = (0.05, 0.15), scale = (0.9, 1.1)),
     transforms.ToTensor(),
 ])
 
