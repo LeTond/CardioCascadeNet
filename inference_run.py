@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.2
-Date: 03-09-2024
+Version: 1.3
+Date: 13-12-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -17,7 +17,7 @@ import time
 
 class MeasureTime:
     def __init__(self):
-        print('> Декоратор с аргументами __init__:')
+        print('Отсчет времени выполнения включен')
 
     def __call__(self, func):
         def wrapper(*args, **kwargs):
@@ -42,88 +42,25 @@ class Inference(MetaParameters):
         self.checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
         # self.checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth', map_location = torch.device('cpu'))
 
-    def nifti_unet1_inference(self, file_name, masks_list = None):
-        fdwr.create_dir(project_name = self.unet1_infer_dir)
+    def model_inference(self, file_dir=None, file_name=None, masks_list = None, 
+                            model_fold = None, unet_type = 'default', mask_type = None, pdf_flag = False):
+        fdwr.create_dir(project_name = file_dir)
         
-        checkpoint = self.checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET1_FOLD}']
+        checkpoint = self.checkpoint[f'Net_{self.DATASET_NAME}_{model_fold}']
         neural_model = checkpoint['Model']
         neural_model.load_state_dict(checkpoint['weights'])
 
         images, templates, image_shp, def_coord = \
-        GetListImages(file_name, self.unet1_infer_dir, self.dataset_path, unet_type = 'default').nifti_list(masks_list)
+        GetListImages(file_name, self.dataset_path, unet_type = unet_type, mask_type = mask_type).nifti_list(masks_list)
         
-        masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'default').get_predicted_mask
+        masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = unet_type).get_predicted_mask
 
-        # NiftiSaver(masks_list, file_name, self.unet1_infer_dir).save_nifti
-        # PdfSaver(file_name, self.dataset_path, self.unet1_infer_dir).save_pdf
+        NiftiSaver(masks_list, file_name, file_dir).save_nifti
+
+        if pdf_flag is True:
+            PdfSaver(file_name, self.dataset_path, file_dir).save_pdf
 
         return masks_list
-
-    def nifti_unet2_inference(self, file_name, masks_list):
-        fdwr.create_dir(project_name = self.unet2_infer_dir)
-
-        checkpoint = self.checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET2_FOLD}']
-        neural_model = checkpoint['Model']
-        neural_model.load_state_dict(checkpoint['weights'])
-
-        images, templates, image_shp, def_coord = \
-        GetListImages(file_name, self.unet1_infer_dir, self.dataset_path, unet_type = 'cropp').nifti_list(masks_list)
-        
-        masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'cropp').get_predicted_mask
-        
-        NiftiSaver(masks_list, file_name, self.unet2_infer_dir).save_nifti
-        PdfSaver(file_name, self.dataset_path, self.unet2_infer_dir).save_pdf
-        
-        return masks_list
-
-    def nifti_unet3_inference(self, file_name, masks_list):
-        fdwr.create_dir(project_name = self.unet3_infer_dir)
-        
-        checkpoint = self.checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET3_FOLD}']
-        neural_model = checkpoint['Model']
-        neural_model.load_state_dict(checkpoint['weights'])
-
-        images, templates, image_shp, def_coord = \
-        GetListImages(file_name, self.unet2_infer_dir, self.dataset_path, unet_type = 'close_cropp').nifti_list(masks_list)
-        
-        masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'close_cropp').get_predicted_mask
-
-        NiftiSaver(masks_list, file_name, self.unet3_infer_dir).save_nifti
-        PdfSaver(file_name, self.dataset_path, self.unet3_infer_dir).save_pdf
-
-        return masks_list
-
-    def nifti_unet4_inference(self, file_name, masks_list = None):
-        fdwr.create_dir(project_name = self.unet4_infer_dir)
-        
-        checkpoint = self.checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET4_FOLD}']
-        neural_model = checkpoint['Model']
-        neural_model.load_state_dict(checkpoint['weights'])
-
-        images, templates, image_shp, def_coord = \
-        GetListImages(file_name, self.unet3_infer_dir, self.dataset_path, unet_type = 'cropp', mask_type = 'myo_level').nifti_list(masks_list)
-        
-        masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'cropp').get_predicted_mask
-
-        # NiftiSaver(masks_list, file_name, self.unet4_infer_dir).save_nifti
-        # PdfSaver(file_name, self.dataset_path, self.unet4_infer_dir).save_pdf
-
-        return masks_list
-
-    def nifti_unet5_inference(self, file_name, masks_list = None):
-        fdwr.create_dir(project_name = self.unet5_infer_dir)
-        
-        checkpoint = self.checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET5_FOLD}']
-        neural_model = checkpoint['Model']
-        neural_model.load_state_dict(checkpoint['weights'])
-
-        images, templates, image_shp, def_coord = \
-        GetListImages(file_name, self.unet4_infer_dir, self.dataset_path, unet_type = 'cropp', mask_type = 'infer_bull_level').nifti_list(masks_list)
-        
-        masks_list = PredictionMask(neural_model, images, templates, image_shp, def_coord, unet_type = 'cropp').get_predicted_mask
-
-        # NiftiSaver(masks_list, file_name, self.unet5_infer_dir).save_nifti
-        # PdfSaver(file_name, self.dataset_path, self.unet5_infer_dir).save_pdf
 
     def dicom_unet1_inference(self, file_name, def_coord = None):
         fdwr.create_dir(project_name = self.unet1_infer_dir)
@@ -197,24 +134,6 @@ class Inference(MetaParameters):
 
         return dict_sub_names
 
-    def rewrite_weights(self, from_model, to_model, unet_model):
-        checkpoint1 = torch.load(f'./Results/{from_model}/{from_model}_model.pth')
-        checkpoint1 = checkpoint1[f'Net_{from_model}_{unet_model}']
-        # checkpoint1 = checkpoint1[f'Net_{from_model}_Unet2_Fold_full/']
-
-        model = checkpoint1['Model']
-        model.load_state_dict(checkpoint1['weights'])  
-
-        checkpoint = torch.load(f'./Results/{to_model}/{to_model}_model.pth')
-        checkpoint[f'Net_{to_model}_{unet_model}'] = {'Model': checkpoint1['Model'], 'weights': checkpoint1['Model'].state_dict()}
-
-        torch.save(
-            checkpoint,
-            f'./Results/{to_model}/{to_model}_model.pth')
-
-        print(f'weights was pull from {from_model} and drop to {to_model}')
-
-    @MeasureTime()
     def run_process(self):
         # dataset_list = ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_origin_new/').get_dataset_list()
         # dataset_list = ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_origin_new/').get_file_path_list()
@@ -231,39 +150,34 @@ class Inference(MetaParameters):
         subname = 'default'
         dict_sub_names = self.create_dict_subnames(subname)
 
-        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet1_Fold_full/')
-        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet2_Fold_full/')
-        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet3_Fold_full/')
-        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet4_Fold_full/')
-        # self.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet5_Fold_full/')
-
-        # self.rewrite_weights('BULLEYE', 'ALMAZ', 'Unet5_Fold_full/')
-        # self.rewrite_weights('BULLEYE', 'ALMAZ', 'Unet4_Fold_full/')
-
         for file_name in dataset_list:
             if file_name.endswith('.nii'):
-                # if self.UNET1 is True:
-                    # masks_list_01 = self.nifti_unet1_inference(file_name)
-                    # print(f'New subject {file_name} was saved with U-net1 Model')
-
-                masks_list_01 = ReadImages(f"./Dataset/HCM_adult_Unet1_mask_new/{file_name}").view_matrix
-
+                if self.UNET1 is True:
+                    masks_list_01 = self.model_inference(self.NEW_UNET1_MASK_PATH, file_name, None, self.UNET1_FOLD)
+                    print(f'New subject {file_name} was saved with U-net1 Model')
 
                 if self.UNET2 is True:
-                    masks_list_02 = self.nifti_unet2_inference(file_name, masks_list_01)
+                    masks_list_02 = self.model_inference(self.NEW_UNET2_MASK_PATH, file_name, masks_list_01, self.UNET2_FOLD, 'cropp')
                     print(f'New subject {file_name} was saved with U-net2 Model')
 
                 if self.UNET3 is True:
-                    masks_list_03 = self.nifti_unet3_inference(file_name, masks_list_02)
+                    masks_list_03 = self.model_inference(self.NEW_UNET3_MASK_PATH, file_name, masks_list_02, self.UNET3_FOLD, 'close_cropp')
                     print(f'New subject {file_name} was saved with U-net3 Model')
 
                 if self.UNET4 is True:
-                    masks_list_04 = self.nifti_unet4_inference(file_name, masks_list_03)
+                    masks_list_04 = self.model_inference(self.NEW_UNET4_MASK_PATH, file_name, masks_list_03, self.UNET4_FOLD, 'cropp', 'myo_level')
                     print(f'New subject {file_name} was saved with U-net4 Model')
 
                 if self.UNET5 is True:
-                    self.nifti_unet5_inference(file_name, masks_list_04)
+                    self.model_inference(self.NEW_UNET5_MASK_PATH, file_name, masks_list_04, self.UNET5_FOLD, 'cropp', 'infer_bull_level', True)
                     print(f'New subject {file_name} was saved with U-net5 Model')
+
+
+        for file_name in dataset_list:
+            if file_name.endswith('.dcm'):
+                image = ReadImages(f'./Dataset/HEAD_origin_new/{file_name}').get_dcm()
+                images.append(image)
+
 
         ##TODO: DICOM inference work only if get mask info from predicted and saved mask into preview directory
         ##TODO: should add while Patient.name == FixPatient.name: continiue else: def_coord_list = [] coord_x, coord_y = 0, 0

@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.1
-Date: 03-09-2024
+Version: 1.3
+Date: 13-12-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -17,6 +17,347 @@ from torchvision import models
 import torch.nn.functional as F
 
 import torch
+import math
+
+
+def window_partition(x, window_size):
+    B, H, W, C = x.shape
+    x = x.view(B, H // window_size[0], window_size[0], W // window_size[1], window_size[1], C)
+    windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size[0], window_size[1], C)
+    return windows
+
+def window_reverse(windows, window_size, H, W):
+    C = windows.shape[-1]
+    x = windows.view(-1, H // window_size[0], W // window_size[1], window_size[0], window_size[1], C)
+    x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, H, W, C)
+    return x
+
+def get_relative_position_index(win_h: int, win_w: int):
+    # get pair-wise relative position index for each token inside the window
+    coords = torch.stack(torch.meshgrid(torch.arange(win_h), torch.arange(win_w),indexing = 'ij'))  # 2, Wh, Ww
+    coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+    relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
+    relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
+    relative_coords[:, :, 0] += win_h - 1  # shift to start from 0
+    relative_coords[:, :, 1] += win_w - 1
+    relative_coords[:, :, 0] *= 2 * win_w - 1
+    return relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
+
+
+class WindowAttention(nn.Module):
+    def __init__(
+            self,
+            dim,
+            window_size,
+    ):
+        super().__init__()
+        self.window_size = window_size
+        self.window_area = self.window_size[0]*self.window_size[1]
+        self.num_heads = 4
+        head_dim =  dim // self.num_heads
+        # attn_dim = head_dim * self.num_heads
+        self.scale = head_dim ** -0.5
+
+        self.relative_position_bias_table = nn.Parameter(torch.zeros((2 * window_size[0] - 1) **2, self.num_heads))
+
+        # get pair-wise relative position index for each token inside the window
+        self.register_buffer("relative_position_index", get_relative_position_index(self.window_size[0], self.window_size[1]), persistent=False)
+
+        self.qkv = nn.Linear(dim, dim * 3)
+        self.proj = nn.Linear(dim, dim)
+
+        torch.nn.init.trunc_normal_(self.relative_position_bias_table, std = .02)
+        self.softmax = nn.Softmax(dim = -1)
+
+    def _get_rel_pos_bias(self):
+        relative_position_bias = self.relative_position_bias_table[
+            self.relative_position_index.view(-1)].view(self.window_area, self.window_area, -1)  # Wh*Ww,Wh*Ww,nH
+        relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
+        return relative_position_bias.unsqueeze(0)
+
+    def forward(self, x, mask = None):
+        B_, N, C = x.shape
+        qkv = self.qkv(x).reshape(B_, N, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv.unbind(0)
+
+
+        q = q * self.scale
+        attn = q @ k.transpose(-2, -1)
+        attn = attn + self._get_rel_pos_bias()
+        if mask is not None:
+            num_win = mask.shape[0]
+            attn = attn.view(-1, num_win, self.num_heads, N, N) + mask.unsqueeze(1).unsqueeze(0)
+            attn = attn.view(-1, self.num_heads, N, N)
+        attn = self.softmax(attn)
+        x = attn @ v
+
+        x = x.transpose(1, 2).reshape(B_, N, -1)
+        x = self.proj(x)
+        return x
+
+
+class SwinTransformerBlock(nn.Module):
+    def __init__(self, dim, input_resolution, window_size = 6, shift_size = 0):
+        super().__init__()
+
+        self.input_resolution = input_resolution
+        window_size = (window_size, window_size)
+        shift_size = (shift_size, shift_size)
+        self.window_size = window_size
+        self.shift_size = shift_size
+        self.window_area = self.window_size[0] * self.window_size[1]
+
+        self.norm1 = nn.LayerNorm(dim)
+        self.attn = WindowAttention(
+            dim,
+            window_size = self.window_size,
+        )
+
+        self.norm2 = nn.LayerNorm(dim)
+
+        self.mlp = nn.Sequential(
+            nn.Linear(dim, 4 * dim),
+            nn.GELU(),
+            nn.LayerNorm(4 * dim),
+            nn.Linear( 4 * dim, dim)
+        )
+
+        if self.shift_size:
+            # calculate attention mask for SW-MSA
+            H, W = self.input_resolution
+            H = math.ceil(H / self.window_size[0]) * self.window_size[0]
+            W = math.ceil(W / self.window_size[1]) * self.window_size[1]
+            img_mask = torch.zeros((1, H, W, 1))  # 1 H W 1
+            cnt = 0
+            for h in (
+                    slice(0, -self.window_size[0]),
+                    slice(-self.window_size[0], -self.shift_size[0]),
+                    slice(-self.shift_size[0], None)):
+                for w in (
+                        slice(0, -self.window_size[1]),
+                        slice(-self.window_size[1], -self.shift_size[1]),
+                        slice(-self.shift_size[1], None)):
+                    img_mask[:, h, w, :] = cnt
+                    cnt += 1
+            mask_windows = window_partition(img_mask, self.window_size)  # nW, window_size, window_size, 1
+            mask_windows = mask_windows.view(-1, self.window_area)
+            attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
+            attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
+        else:
+            attn_mask = None
+
+        self.register_buffer("attn_mask", attn_mask, persistent = False)
+
+    def _attn(self, x):
+        B, H, W, C = x.shape
+
+        # cyclic shift
+        if self.shift_size:
+            shifted_x = torch.roll(x, shifts = (-self.shift_size[0], -self.shift_size[1]), dims = (1, 2))
+        else:
+            shifted_x = x
+
+        # partition windows
+        x_windows = window_partition(shifted_x, self.window_size)  # nW*B, window_size, window_size, C
+        x_windows = x_windows.view(-1, self.window_area, C)  # nW*B, window_size*window_size, C
+
+        # W-MSA/SW-MSA
+        attn_windows = self.attn(x_windows, mask = self.attn_mask)  # nW*B, window_size*window_size, C
+
+        # merge windows
+        attn_windows = attn_windows.view(-1, self.window_size[0], self.window_size[1], C)
+        shifted_x = window_reverse(attn_windows, self.window_size, H, W)  # B H' W' C
+        shifted_x = shifted_x[:, :H, :W, :].contiguous()
+
+        # reverse cyclic shift
+        if self.shift_size:
+            x = torch.roll(shifted_x, shifts=self.shift_size, dims = (1, 2))
+        else:
+            x = shifted_x
+        return x
+
+    def forward(self, x):
+        B, H, W, C = x.shape
+        B, H, W, C = x.shape
+        x = x + self._attn(self.norm1(x))
+        x = x.reshape(B, -1, C)
+        x = x + self.mlp(self.norm2(x))
+        x = x.reshape(B, H, W, C)
+        return x
+
+
+class PatchEmbedding(nn.Module):
+    def __init__(self, in_ch, num_feat, patch_size):
+        super().__init__()
+        self.conv = nn.Conv2d(in_ch,num_feat, kernel_size=patch_size,
+                                  stride=patch_size)
+
+    def forward(self, X):
+        # Output shape: (batch size, no. of patches, no. of channels)
+        return self.conv(X).permute(0,2,3,1)
+
+
+class PatchMerging(nn.Module):
+
+    def __init__(
+            self,
+            dim
+    ):
+        super().__init__()
+        self.norm = nn.LayerNorm(4 * dim)
+        self.reduction = nn.Linear(4*dim, 2*dim, bias=False)
+
+    def forward(self, x):
+        B, H, W, C = x.shape
+        x = x.reshape(B, H // 2, 2, W // 2, 2, C).permute(0, 1, 3, 4, 2, 5).flatten(3)
+        x = self.norm(x)
+        x = self.reduction(x)
+        return x
+
+
+class PatchExpansion(nn.Module):
+
+    def __init__(
+            self,
+            dim
+    ):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim//2)
+        self.expand = nn.Linear(dim, 2*dim, bias=False)
+
+    def forward(self, x):
+
+        x = self.expand(x)
+        B, H, W, C = x.shape
+
+        x = x.view(B, H , W, 2, 2, C//4)
+        x = x.permute(0,1,3,2,4,5)
+
+        x = x.reshape(B,H*2, W*2 , C//4)
+
+        x = self.norm(x)
+        return x
+
+
+class FinalPatchExpansion(nn.Module):
+
+    def __init__(
+            self,
+            dim
+    ):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim)
+        self.expand = nn.Linear(dim, 16*dim, bias=False)
+
+    def forward(self, x):
+
+        x = self.expand(x)
+        B, H, W, C = x.shape
+
+        x = x.view(B, H , W, 4, 4, C//16)
+        x = x.permute(0,1,3,2,4,5)
+
+        x = x.reshape(B,H*4, W*4 , C//16)
+
+        x = self.norm(x)
+        return x
+
+
+class SwinBlock(nn.Module):
+    def __init__(self, dims, ip_res, ss_size = 3):
+        super().__init__()
+        self.swtb1 = SwinTransformerBlock(dim=dims, input_resolution=ip_res)
+        self.swtb2 = SwinTransformerBlock(dim=dims, input_resolution=ip_res, shift_size=ss_size)
+
+    def forward(self, x):
+        return self.swtb2(self.swtb1(x))
+
+
+class Encoder(nn.Module):
+    def __init__(self, C, partioned_ip_res, num_blocks=3):
+        super().__init__()
+        H,W = partioned_ip_res[0], partioned_ip_res[1]
+        self.enc_swin_blocks = nn.ModuleList([
+            SwinBlock(C, (H, W)),
+            SwinBlock(2 * C, (H // 2, W // 2)),
+            SwinBlock(4 * C, (H // 4, W // 4))
+        ])
+        self.enc_patch_merge_blocks = nn.ModuleList([
+            PatchMerging(C),
+            PatchMerging(2 * C),
+            PatchMerging(4 * C)
+        ])
+
+    def forward(self, x):
+        skip_conn_ftrs = []
+        for swin_block,patch_merger in zip(self.enc_swin_blocks, self.enc_patch_merge_blocks):
+            x = swin_block(x)
+            skip_conn_ftrs.append(x)
+            x = patch_merger(x)
+        return x, skip_conn_ftrs
+
+
+class Decoder(nn.Module):
+    def __init__(self, C, partioned_ip_res, num_blocks=3):
+        super().__init__()
+        H,W = partioned_ip_res[0], partioned_ip_res[1]
+        self.dec_swin_blocks = nn.ModuleList([
+            SwinBlock(4*C, (H//4, W//4)),
+            SwinBlock(2*C, (H//2, W//2)),
+            SwinBlock(C, (H, W))
+        ])
+        self.dec_patch_expand_blocks = nn.ModuleList([
+            PatchExpansion(8*C),
+            PatchExpansion(4*C),
+            PatchExpansion(2*C)
+        ])
+        self.skip_conn_concat = nn.ModuleList([
+            nn.Linear(8*C, 4*C),
+            nn.Linear(4*C, 2*C),
+            nn.Linear(2*C, 1*C)
+        ])
+
+    def forward(self, x, encoder_features):
+        for patch_expand,swin_block, enc_ftr, linear_concatter in zip(self.dec_patch_expand_blocks, self.dec_swin_blocks, encoder_features,self.skip_conn_concat):
+            x = patch_expand(x)
+            x = torch.cat([x, enc_ftr], dim=-1)
+            x = linear_concatter(x)
+            x = swin_block(x)
+        return x
+
+
+class SwinUNet(nn.Module, MetaParameters):
+    def __init__(self, num_blocks = 3, patch_size = 4):
+        super().__init__()
+        super(MetaParameters, self).__init__()
+
+        in_channels = self.CHANNELS
+        out_channels = self.NUM_CLASS
+        C = self.BT_SZ
+        # H = self.CROPP_KERNEL
+        H = self.KERNEL
+        # W = self.CROPP_KERNEL
+        W = self.KERNEL
+
+        self.patch_embed = PatchEmbedding(in_channels, C, patch_size)
+        self.encoder = Encoder(C, (H // patch_size, W // patch_size), num_blocks)
+        self.bottleneck = \
+                    SwinBlock(C * (2 ** num_blocks), (H // (patch_size * (2 ** num_blocks)), W // (patch_size * (2 ** num_blocks))))
+        self.decoder = Decoder(C, (H // patch_size, W // patch_size), num_blocks)
+        self.final_expansion = FinalPatchExpansion(C)
+        self.head = nn.Conv2d(C, out_channels, 1, padding='same')
+
+    def forward(self, x):
+        x = self.patch_embed(x)
+
+        x,skip_ftrs = self.encoder(x)
+
+        x = self.bottleneck(x)
+        x = self.decoder(x, skip_ftrs[::-1])
+        x = self.final_expansion(x)
+        x = self.head(x.permute(0, 3, 1, 2))
+
+        return x
 
 
 class UNet_2D(nn.Module, MetaParameters):
@@ -131,7 +472,6 @@ class UNet_2D(nn.Module, MetaParameters):
 
 
 class UNet_2D_AttantionLayer(nn.Module, MetaParameters):
-
     def __init__(self):
         super(UNet_2D_AttantionLayer, self).__init__()
         super(MetaParameters, self).__init__()
@@ -179,6 +519,11 @@ class UNet_2D_AttantionLayer(nn.Module, MetaParameters):
         
         self.conv = nn.Conv2d(in_channels = features, out_channels = out_channels, kernel_size = 1)
 
+        # initialize_weights(self)
+
+        # if freeze_bn:
+        #     self.freeze_bn()
+
     def forward(self, x):
 
         enc1 = self.encoder1(x)
@@ -194,7 +539,7 @@ class UNet_2D_AttantionLayer(nn.Module, MetaParameters):
         enc4 = self.dropout(enc4)
 
         bottleneck = self.bottleneck(self.pool4(enc4))
-        # bottleneck = self.dropout(bottleneck)
+        bottleneck = self.dropout(bottleneck)
 
         dec4 = self.upconv4(bottleneck)
         enc4 = self.Att4(dec4,enc4)
@@ -220,9 +565,8 @@ class UNet_2D_AttantionLayer(nn.Module, MetaParameters):
         dec1 = self.dropout(dec1)
         dec1 = self.decoder1(dec1)
 
-        # return torch.softmax(self.conv(dec1), dim=1)
-        # return torch.sigmoid(self.conv(dec1))
-        return self.conv(dec1)
+        return torch.softmax(self.conv(dec1), dim=1)
+        # return self.conv(dec1)
 
     @staticmethod
     def Conv2x2(in_channels, features, name):
@@ -265,6 +609,10 @@ class UNet_2D_AttantionLayer(nn.Module, MetaParameters):
             )
         )
 
+    def freeze_bn(self):
+        for module in self.modules():
+            if isinstance(module, nn.BatchNorm2d): module.eval()
+
 
 class Attention_2D(nn.Module):
     def __init__(self,F_g,F_l,F_int):
@@ -285,8 +633,8 @@ class Attention_2D(nn.Module):
             nn.Softmax(dim = 1)
         )
         
-        # self.relu = nn.ReLU(inplace = True)
-        self.relu = nn.LeakyReLU(negative_slope = 0.1, inplace = True)
+        self.relu = nn.ReLU(inplace = True)
+        # self.relu = nn.LeakyReLU(negative_slope = 0.1, inplace = True)
         
     def forward(self,g,x):
         g1 = self.W_g(g)
@@ -295,78 +643,6 @@ class Attention_2D(nn.Module):
         psi = self.psi(psi)
 
         return x * psi
-
-
-class DoubleConv(nn.Module):
-    """(convolution => [BN] => ReLU) * 2"""
-
-    def __init__(self, in_channels, out_channels, mid_channels = None):
-        super().__init__()
-        if not mid_channels:
-            mid_channels = out_channels
-        self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size = 3, padding = 1, bias = False),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace = True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size = 3, padding = 1, bias = False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace = True)
-        )
-
-    def forward(self, x):
-        return self.double_conv(x)
-
-
-class Down(nn.Module):
-    """Downscaling with maxpool then double conv"""
-
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-        self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2),
-            DoubleConv(in_channels, out_channels)
-        )
-
-    def forward(self, x):
-        return self.maxpool_conv(x)
-
-
-class Up(nn.Module):
-    """Upscaling then double conv"""
-
-    def __init__(self, in_channels, out_channels, bilinear=True):
-        super().__init__()
-
-        # if bilinear, use the normal convolutions to reduce the number of channels
-        if bilinear:
-            self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-            self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
-        else:
-            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-            self.conv = DoubleConv(in_channels, out_channels)
-
-    def forward(self, x1, x2):
-        x1 = self.up(x1)
-        # input is CHW
-        diffY = x2.size()[2] - x1.size()[2]
-        diffX = x2.size()[3] - x1.size()[3]
-
-        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
-                        diffY // 2, diffY - diffY // 2])
-        # if you have padding issues, see
-        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
-        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
-        x = torch.cat([x2, x1], dim=1)
-        return self.conv(x)
-
-
-class OutConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(OutConv, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-
-    def forward(self, x):
-        return self.conv(x)
 
 
 class UNet_2D_mini(nn.Module, MetaParameters):
@@ -457,73 +733,7 @@ class UNet_2D_mini(nn.Module, MetaParameters):
         )
 
 
-class UNet(nn.Module):
-    def __init__(self, n_channels, n_classes, bilinear = True):
-        super(UNet, self).__init__()
-        self.n_channels = n_channels
-        self.n_classes = n_classes
-        self.bilinear = bilinear
-
-        self.inc = (DoubleConv(n_channels, 64))
-        self.down1 = (Down(64, 128))
-        self.down2 = (Down(128, 256))
-        self.down3 = (Down(256, 512))
-        factor = 2 if bilinear else 1
-        self.down4 = (Down(512, 1024 // factor))
-        self.up1 = (Up(1024, 512 // factor, bilinear))
-        self.up2 = (Up(512, 256 // factor, bilinear))
-        self.up3 = (Up(256, 128 // factor, bilinear))
-        self.up4 = (Up(128, 64, bilinear))
-        self.outc = (OutConv(64, n_classes))
-
-    def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
-        logits = self.outc(x)
-        return logits
-
-    def use_checkpointing(self):
-        self.inc = torch.utils.checkpoint(self.inc)
-        self.down1 = torch.utils.checkpoint(self.down1)
-        self.down2 = torch.utils.checkpoint(self.down2)
-        self.down3 = torch.utils.checkpoint(self.down3)
-        self.down4 = torch.utils.checkpoint(self.down4)
-        self.up1 = torch.utils.checkpoint(self.up1)
-        self.up2 = torch.utils.checkpoint(self.up2)
-        self.up3 = torch.utils.checkpoint(self.up3)
-        self.up4 = torch.utils.checkpoint(self.up4)
-        self.outc = torch.utils.checkpoint(self.outc)
-
-
-class DoubleConv(nn.Module):
-    """(convolution => [BN] => ReLU) * 2"""
-
-    def __init__(self, in_channels, out_channels, mid_channels=None):
-        super().__init__()
-        if not mid_channels:
-            mid_channels = out_channels
-        self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        return self.double_conv(x)
-
-
 class U_Net(nn.Module):
-
     def __init__(self, img_ch=1, num_classes=4):
         super(U_Net, self).__init__()
  
@@ -587,34 +797,6 @@ class U_Net(nn.Module):
         d1 = self.Conv_1x1(d2)
  
         return d1
-
-
-class CNN(nn.Module):
-    
-    # Constructor
-    def __init__(self, out_1=1, out_2=4, out_mp2=7*7):
-        super(CNN, self).__init__()
-        self.cnn1 = nn.Conv2d(in_channels=1, out_channels=out_1, 
-                              kernel_size=5, padding=2)
-        self.maxpool1=nn.MaxPool2d(kernel_size=2)
-
-        self.cnn2 = nn.Conv2d(in_channels=out_1, out_channels=out_2,
-                              kernel_size=5, stride=1, padding=2)
-        self.maxpool2=nn.MaxPool2d(kernel_size=2)
-        self.fc1 = nn.Linear(out_2 * out_mp2, 10)
-    
-    # Prediction
-    def forward(self, x):
-        x = self.cnn1(x)
-        x = torch.relu(x)
-        x = self.maxpool1(x)
-        x = self.cnn2(x)
-        x = torch.relu(x)
-        x = self.maxpool2(x)
-        # Flatten the matrices
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
-        return x
 
 
 def initialize_weights(*models):
@@ -728,6 +910,7 @@ class UNetResnet(BaseModel, MetaParameters):
             x = F.interpolate(x, size=(H, W), mode="bilinear", align_corners=True)
 
         x = self.conv7(self.conv6(x))
+        
         return x
 
     def get_backbone_params(self):
@@ -791,17 +974,16 @@ class SegNet(BaseModel, MetaParameters):
         self.stage5_decoder = nn.Sequential(*decoder[33:],
                 nn.Conv2d(64, num_classes, kernel_size=3, stride=1, padding=1)
         )
-        
+    
         self.unpool = nn.MaxUnpool2d(kernel_size=2, stride=2)
         # self.unpool = nn.MaxPool2d(kernel_size=2, stride=2)
-
 
         self._initialize_weights(self.stage1_decoder, self.stage2_decoder, self.stage3_decoder,
                                     self.stage4_decoder, self.stage5_decoder)
         if freeze_bn: 
             self.freeze_bn()
         # else: 
-            # set_trainable([self.stage1_encoder, self.stage2_encoder, self.stage3_encoder, self.stage4_encoder, self.stage5_encoder], False)
+        #     set_trainable([self.stage1_encoder, self.stage2_encoder, self.stage3_encoder, self.stage4_encoder, self.stage5_encoder], False)
 
     def _initialize_weights(self, *stages):
         for modules in stages:
@@ -852,7 +1034,9 @@ class SegNet(BaseModel, MetaParameters):
         x = self.unpool(x, indices=indices1, output_size=x1_size)
         x = self.stage5_decoder(x)
 
-        return x
+        # return x
+        return torch.softmax(self.conv(x), dim=1)
+        
 
     def get_backbone_params(self):
         return []
@@ -863,6 +1047,3 @@ class SegNet(BaseModel, MetaParameters):
     def freeze_bn(self):
         for module in self.modules():
             if isinstance(module, nn.BatchNorm2d): module.eval()
-
-
-

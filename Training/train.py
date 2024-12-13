@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.1
-Date: 03-09-2024
+Version: 1.3
+Date: 13-12-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -72,7 +72,7 @@ class TrainNetwork(MetaParameters):
                 predict = self.model(inputs)
                 loss += self.loss_function(predict, labels)
 
-                predict = torch.softmax(predict, dim = 1)
+                # predict = torch.softmax(predict, dim = 1)
                 predict = torch.argmax(predict, dim = 1)
                 labels = torch.argmax(labels, dim = 1)
                 
@@ -104,14 +104,16 @@ class TrainNetwork(MetaParameters):
                 predict = self.model(inputs)
                 train_loss = loss_function(predict, labels)
 
-                predict = torch.softmax(predict, dim = 1)
+                # predict = torch.softmax(predict, dim = 1)
                 predict = torch.argmax(predict, dim = 1)
                 labels = torch.argmax(labels, dim = 1)
+                
+                # train_loss_02 = 0
                 
                 # for key in range(1, self.NUM_CLASS):
                 #     predict_ = (predict == key)
                 #     labels_ = (labels == key)
-                #     train_loss_02 += (1 - float(self.ds(predict_, labels_)) * self.CEW[key])
+                #     train_loss_02 += (1 - float(self.ds(predict_, labels_)) * self.CE_WEIGHTS[key])
 
                 # train_loss = train_loss_01 + train_loss_02
                 

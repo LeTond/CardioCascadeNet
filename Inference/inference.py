@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.2
-Date: 03-09-2024
+Version: 1.3
+Date: 13-12-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -23,18 +23,20 @@ from matplotlib.backends.backend_pdf import PdfPages
 from skimage.transform import resize, rescale       #pip install scikit-image
 from skimage.transform import resize, rescale, downscale_local_mean
 
-from Model.unet2D import UNet_2D, UNet_2D_AttantionLayer
+from Model.unet2D import UNet_2D, UNet_2D_AttantionLayer, SwinUNet, UNetResnet, SegNet
+# from Model.UNetResnet import UNetResnet
+# from Model.SegNet import SegNet
+
 from Preprocessing.preprocessing import *
 from Postprocessing.postprocessing import *
 from configuration import *
 
 
 class GetListImages(MetaParameters):
-    def __init__(self, file_path, path_to_data, dataset_path, unet_type = None, mask_type = None):
+    def __init__(self, file_path, dataset_path, unet_type = None, mask_type = None):
         super(MetaParameters, self).__init__()
         self.file_path = file_path
         self.file_name = file_path.split('/')[-1]
-        self.path_to_data = path_to_data
         self.dataset_path = dataset_path
         self.def_coord = None
         self.__unet_type = unet_type
@@ -58,7 +60,7 @@ class GetListImages(MetaParameters):
 
         if self.mask_type == 'infer_bull_level':
             # templates = ReadImages(f'./Dataset/HCM_adult_mask/{self.file_name}').view_matrix
-            templates = ReadImages(f'./Dataset/ALMAZ_Unet2_mask_new/{self.file_name}').view_matrix
+            templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
 
         if masks is not None:
             images, masks, templates, self.def_coord = \
@@ -533,7 +535,7 @@ class PdfSaver(MetaParameters):
         self.images_list = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
         self.masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
         self.orig_masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
-        self.orig_masks_list = ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
+        # self.orig_masks_list = ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
         # self.fib_masks_list = ReadImages(f"./Dataset/HCM_adult_Unet2_mask_new/{self.file_name}").view_matrix
         
         self.images_list = self.images_list.transpose(2, 0, 1)
@@ -605,9 +607,9 @@ class PdfSaver(MetaParameters):
                             if cluster_size > len(clusters[max_size]['coords']):
                                 max_size = i
 
-                            weight_mass_y, weight_mass_x = clusters[max_size]['coords'][len(clusters[max_size]['coords'])//2]
+                        weight_mass_y, weight_mass_x = clusters[max_size]['coords'][len(clusters[max_size]['coords'])//2]
 
-                    ax.annotate(f'{self.SCAR_DICT_CLASS[clss]}', 
+                    ax.annotate(f'{self.DICT_CLASS[clss]}', 
                                 xy = (weight_mass_x, weight_mass_y), 
                                 fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y + 5), 
                                 arrowprops = self.arrowprops,

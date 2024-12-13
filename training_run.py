@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.2
-Date: 03-09-2024
+Version: 1.3
+Date: 13-12-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -13,19 +13,16 @@ import torch
 from configuration import *
 from Preprocessing.split_dataset import *
 from Preprocessing.dirs_logs import FileDirectoryWorker
-from Model.unet2D import UNet_2D, UNet_2D_AttantionLayer, UNetResnet, SegNet
-# from Model.unet3D import UNet_3D, UNet_3D_AttantionLayer
+from Model.unet2D import UNet_2D, UNet_2D_AttantionLayer, SwinUNet, UNetResnet, SegNet
+# from Model.UNetResnet import UNetResnet
+# from Model.SegNet import SegNet
 # from Model.FCT.utils.model import FCT
-# from Model.resnet import ResNet, BasicBlock
+from Model.resnet import ResNet, BasicBlock
 # from Model.models import bounding_box_CNN
 from Training.train import *
 from Training.dataset import *
 from Training.ranger import Ranger
 from Training.optimizer import Lion
-
-
-# from torchsummary import summary
-
 
 
 class ChooseModelConfig(MetaParameters):
@@ -44,16 +41,12 @@ class ChooseModelConfig(MetaParameters):
     def choose_model_key(self):
         if self.UNET5 is True:
             return self.UNET5_FOLD
-
         elif self.UNET4 is True and self.UNET5 is False:
             return self.UNET4_FOLD
-        
         elif self.UNET3 is True and self.UNET4 is False:
             return self.UNET3_FOLD
-        
         elif self.UNET2 is True and self.UNET3 is False:
             return self.UNET2_FOLD
-        
         elif self.UNET1 is True and self.UNET2 is False:
             return self.UNET1_FOLD
 
@@ -72,9 +65,6 @@ class ChooseModelConfig(MetaParameters):
                 checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
                 checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.model_key}']
 
-                # checkpoint = torch.load(f'./Results/ALMAZ/ALMAZ_model.pth')
-                # checkpoint = checkpoint[f'Net_ALMAZ_{self.model_key}']
-                
                 model = checkpoint['Model']
                 model.load_state_dict(checkpoint['weights'])  
                 model.eval()      
@@ -84,10 +74,12 @@ class ChooseModelConfig(MetaParameters):
                 print('\n' + 'No Trained Models !!!' + '\n')
                 model = UNet_2D_AttantionLayer().to(device = device)
         else:
-            model = UNet_2D_AttantionLayer().to(device = device)
+            model = UNet_2D_AttantionLayer().to(device = device)            
             # model = UNet_2D().to(device=device)
             # model = UNetResnet().to(device=device)
             # model = SegNet().to(device=device)
+            # model = ResNet().to(device=device)
+            # model = SwinUNet().to(device = device)
 
         return model
 
@@ -103,12 +95,12 @@ class ChooseModelConfig(MetaParameters):
                     for param in child.parameters(): 
                         param.requires_grad = False
 
-        # optimizer = torch.optim.Adam(filter(lambda x: x.requires_grad, model.parameters()), lr = meta.LR, weight_decay = meta.WDC)
-        # optimizer = torch.optim.Adam(model.parameters(), lr = meta.LR, weight_decay = meta.WDC)
-        # optimizer = torch.optim.AdamW(model.parameters(), lr = meta.LR, weight_decay = meta.WDC)
-        # optimizer = Lion(model.parameters(), lr = meta.LR, betas = (0.9, 0.99), weight_decay = meta.WDC)
-        # optimizer = torch.optim.AdamW(model.parameters(), lr = learning_rate, weight_decay = wdc, amsgrad = False)
-        # optimizer = torch.optim.SGD(model.parameters(), lr = meta.LR, weight_decay = meta.WDC, momentum = 0.9, nesterov = True)        
+        # optimizer = torch.optim.Adam(filter(lambda x: x.requires_grad, self.model.parameters()), lr = self.LR, weight_decay = self.WDC)
+        # optimizer = torch.optim.Adam(self.model.parameters(), lr = self.LR, weight_decay = self.WDC)
+        # optimizer = torch.optim.AdamW(self.model.parameters(), lr = self.LR, weight_decay = self.WDC)
+        # optimizer = Lion(self.model.parameters(), lr = self.LR, betas = (0.9, 0.99), weight_decay = self.WDC)
+        # optimizer = torch.optim.AdamW(self.model.parameters(), lr = self.LR, weight_decay = self.WDC, amsgrad = False)
+        # optimizer = torch.optim.SGD(model.parameters(), lr = self.LR, weight_decay = self.WDC, momentum = 0.9, nesterov = True)        
         optimizer = Ranger(self.model.parameters(), lr = self.LR, k = 6, N_sma_threshhold = 5, weight_decay = self.WDC)
         # optimizer = Ranger(filter(lambda x: x.requires_grad, self.model.parameters()),  lr = self.LR, k = 6, N_sma_threshhold = 5, weight_decay = self.WDC)
 
@@ -133,6 +125,24 @@ class ChooseModelConfig(MetaParameters):
     def scheduler_gen(self):
         return self.choose_scheduler_gen
 
+    @staticmethod
+    def rewrite_weights(from_model, to_model, unet_model):
+        checkpoint1 = torch.load(f'./Results/{from_model}/{from_model}_model.pth')
+        checkpoint1 = checkpoint1[f'Net_{from_model}_{unet_model}']
+        # checkpoint1 = checkpoint1[f'Net_{from_model}_Unet2_Fold_full/']
+
+        model = checkpoint1['Model']
+        model.load_state_dict(checkpoint1['weights'])  
+
+        checkpoint = torch.load(f'./Results/{to_model}/{to_model}_model.pth')
+        checkpoint[f'Net_{to_model}_{unet_model}'] = {'Model': checkpoint1['Model'], 'weights': checkpoint1['Model'].state_dict()}
+
+        torch.save(
+            checkpoint,
+            f'./Results/{to_model}/{to_model}_model.pth')
+
+        print(f'weights was pull from {from_model} and drop to {to_model}')
+
 
 if __name__ == '__main__':
     cmc = ChooseModelConfig()
@@ -146,6 +156,14 @@ if __name__ == '__main__':
     ########################################################################################################################
     # Creating loaders for training and validating network
     ########################################################################################################################
+    # cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet1_Fold_full/')
+    # cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet2_Fold_full/')
+    # cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet3_Fold_full/')
+    # cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet4_Fold_full/')
+    # cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet5_Fold_full/')
+    # cmc.rewrite_weights('BULLEYE', 'ALMAZ', 'Unet5_Fold_full/')
+    # cmc.rewrite_weights('BULLEYE', 'ALMAZ', 'Unet4_Fold_full/')
+
     jsnlst = JsonFoldList()
     jsnlst.create_folds_list
 
@@ -158,16 +176,16 @@ if __name__ == '__main__':
     train_ds_origin, train_ds_mask, train_ds_template, train_ds_names = GetData(train_list, meta.AUGMENTATION).generated_data_list
     valid_ds_origin, valid_ds_mask, valid_ds_template, valid_ds_names = GetData(valid_list, False).generated_data_list
 
-    train_set = MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, default_transform)
+    train_set = MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_01)
     for i in range(3):
-        # train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_04)
-        train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_01)
+        train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_02)
+        train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_03)
         # train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_05)
         # train_set += MyDataset(train_ds_origin, train_ds_mask, train_ds_template, train_ds_names, transform_06)
 
     train_loader = DataLoader(train_set, meta.BT_SZ, drop_last = True, shuffle = True, pin_memory = False)
 
-    valid_set = MyDataset(valid_ds_origin, valid_ds_mask, valid_ds_template, valid_ds_names, default_transform)
+    valid_set = MyDataset(valid_ds_origin, valid_ds_mask, valid_ds_template, valid_ds_names, transform_01)
     valid_batch_size = len(valid_set)
     valid_loader = DataLoader(valid_set, meta.BT_SZ, drop_last = True, shuffle = True, pin_memory = False)
 

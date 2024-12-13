@@ -1,9 +1,23 @@
+ # -*- coding: utf-8 -*-
+"""
+Name: Anatoliy Levchuk
+Version: 1.3
+Date: 13-12-2024
+Email: feuerlag999@yandex.ru
+GitHub: https://github.com/LeTond
+"""
+
 
 import os
 import numpy as np
 from Preprocessing.preprocessing import *
 
 
+
+"""
+if two images is equal: pass
+	else: get names of twiced images in dataset 
+"""
 
 
 def images_list():

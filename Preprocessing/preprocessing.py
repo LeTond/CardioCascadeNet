@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.2
-Date: 03-09-2024
+Version: 1.3
+Date: 13-12-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -414,7 +414,7 @@ class Augmentation(MetaParameters):
     @property
     def angle_list(self):
         if self.AUGMENTATION:
-            angle_list = list(set([random.choice([0, 90, 180, 270]) for i in range(2)]))
+            angle_list = list(set([random.choice([0, 90, 180, 270]) for i in range(3)]))
         else: 
             angle_list = [0]
 
@@ -436,38 +436,61 @@ class Augmentation(MetaParameters):
         else:
             template = None
 
-        # ViewData().view_img(image)
-        # ViewData().view_img(mask)
-        # ViewData().view_img(template)
-
         return image, mask, template
 
     @property
-    def gauss_noise(self):
-        sigma, mean = 2, 0.5
-        
-        noise = np.random.normal(mean, sigma ** 0.5, self.image.shape)
-        noisy_image = self.image + noise
-        
-        return noisy_image
+    def choose_noise(self):
+        return random.choice(['with', 'without'])
 
     @property
-    def rician_noise_transforms(self):
-        random_v = random.choice([10, 20, 5, 25])
-        random_s = random.choice([50, 25, 30, 70])
-        num_samples = self.kernel_size * self.kernel_size
-
-        try:    
-            noise = np.random.normal(scale = random_s, size = (num_samples, 2)) + [[random_v, 0]]
-            noise = np.linalg.norm(noise, axis = 1)
-            noise = np.array(noise.reshape(self.kernel_size, self.kernel_size, 1), dtype = np.float32)
-            
-            noisy_image = self.image + noise
-
-        except:
-            print('Rician Noise Application Error')
+    def gauss_noise(self):
+        choose_noise = self.choose_noise
+        sigma, mean = 2, 0.5
         
-        return noisy_image
+        if choose_noise == 'with':
+            try:
+                noise = np.random.normal(mean, sigma ** 0.5, self.image.shape)
+                noisy_image = self.image + noise
+                noisy_image2 = self.template + noise
+
+                noisy_image = np.array(noisy_image, dtype = np.float32)
+                noisy_image2 = np.array(noisy_image2, dtype = np.float32)
+                
+            except:
+                print('Gauss Noise Application Error')
+
+            return noisy_image, self.mask, noisy_image2
+        
+        else:
+            return self.image, self.mask, self.template
+
+    @property
+    def rician_noise(self):
+        choose_noise = self.choose_noise
+
+        if choose_noise == 'with':
+            random_v = random.choice([10, 20, 5, 25])
+            random_s = random.choice([50, 25, 30, 70])
+            num_samples = self.kernel_size * self.kernel_size
+        
+            try:
+                noise = np.random.normal(scale = random_s, size = (num_samples, 2)) + [[random_v, 0]]
+                noise = np.linalg.norm(noise, axis = 1)
+                noise = np.array(noise.reshape(self.kernel_size, self.kernel_size, 1), dtype = np.float32)
+                
+                noisy_image = self.image + noise
+                noisy_image2 = self.template + noise
+
+                noisy_image = np.array(noisy_image, dtype = np.float32)
+                noisy_image2 = np.array(noisy_image2, dtype = np.float32)
+
+            except:
+                print('Rician Noise Application Error')
+            
+            return noisy_image, self.mask, noisy_image2
+        
+        else:
+            return self.image, self.mask, self.template
 
 
 class CroppPreprocessData(MetaParameters):

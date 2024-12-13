@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.2
-Date: 03-09-2024
+Version: 1.3
+Date: 13-12-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -108,6 +108,22 @@ class GetData(MetaParameters):
         else:
             return True
 
+    @staticmethod
+    def patch_unfolder(matrix):
+        matrix = np.expand_dims(matrix, 0)
+        matrix = matrix.transpose(0, 3, 1, 2)
+        matrix = torch.from_numpy(matrix)
+
+        kc, kh, kw = 1, 64, 64  # kernel size
+        dc, dh, dw = 1, 64, 64  # stride
+
+        matrix = matrix.unfold(1, kc, dc).unfold(2, kh, dh).unfold(3, kw, dw)
+        matrix = matrix.contiguous().view(matrix.size(0), -1, kc, kh, kw)
+
+        matrix = matrix[0, :, 0, :, :]
+
+        return matrix
+
     def pool_worker(self, file_name):
         list_images, list_masks, list_templates, list_names = [], [], [], []
 
@@ -143,6 +159,10 @@ class GetData(MetaParameters):
                 try:
                     image, mask, template = \
                     Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
+                    # image, mask, template = \
+                    # Augmentation(image, mask, template, unet_type = self.unet_type).gauss_noise
+                    # image, mask, template = \
+                    # Augmentation(image, mask, template, unet_type = self.unet_type).rician_noise
                 except:
                     print(f'Data Augmentation Problem with {sub_name}')
 
@@ -153,13 +173,11 @@ class GetData(MetaParameters):
                     print(f'Data MaskPreprocessing Problem with {sub_name}')
 
                 if self.check_mask(mask, sub_name, slc):    
-
-                    ########################################################################
                     # image = self.patch_unfolder(image)
                     # template = self.patch_unfolder(template)
                     # mask = self.patch_unfolder(mask)
 
-                    # for i in range(16):
+                    # for i in range(9):
                     #     list_images.append(image[i, :, :])
                     #     list_masks.append(mask[i, :, :])
                     #     list_templates.append(template[i, :, :])
@@ -173,46 +191,47 @@ class GetData(MetaParameters):
 
         return list_images, list_masks, list_templates, list_names
 
-    @staticmethod
-    def patch_unfolder(matrix):
-        matrix = np.expand_dims(matrix, 0)
-        matrix = matrix.transpose(0, 3, 1, 2)
-        matrix = torch.from_numpy(matrix)
-
-        kc, kh, kw = 1, 64, 64  # kernel size
-        dc, dh, dw = 1, 64, 64  # stride
-
-        matrix = matrix.unfold(1, kc, dc).unfold(2, kh, dh).unfold(3, kw, dw)
-        matrix = matrix.contiguous().view(matrix.size(0), -1, kc, kh, kw)
-
-        matrix = matrix[0, :, 0, :, :]
-
-        return matrix
-
     @property
     def generated_data_list(self):
         list_images, list_masks, list_templates, list_names = [], [], [], []
 
-        for subject in self.files:
-            try:
-                images, masks, templates, sub_names = self.pool_worker(subject)
-                for slc in range(len(images)): 
-                    list_images.append(images[slc])
-                    list_masks.append(masks[slc])
-                    list_templates.append(templates[slc])
-                    list_names.append(sub_names[slc])
-            except:
-                pass 
+        # print(self.count_pathology(self.files))
 
-        if self.AUGMENTATION and self.augmentation:
-            for subject in self.files:
+        # for subject in self.files:
+        #     try:
+        #         images, masks, templates, sub_names = self.pool_worker(subject)
+        #         for slc in range(len(images)): 
+        #             list_images.append(images[slc])
+        #             list_masks.append(masks[slc])
+        #             list_templates.append(templates[slc])
+        #             list_names.append(sub_names[slc])
+        #     except:
+        #         pass 
+
+        # if self.AUGMENTATION and self.augmentation:
+        #     for subject in self.files:
+        #         try:
+        #             images, masks, templates, sub_names = self.pool_worker(subject)
+        #             for slc in range(len(images)): 
+        #                 list_images.append(images[slc])
+        #                 list_masks.append(masks[slc])
+        #                 list_templates.append(templates[slc])
+        #                 list_names.append(sub_names[slc])
+        #         except:
+        #             pass 
+
+        for case in range(2):
+            with Pool(processes=4) as pool:
                 try:
-                    images, masks, templates, sub_names = self.pool_worker(subject)
-                    for slc in range(len(images)): 
-                        list_images.append(images[slc])
-                        list_masks.append(masks[slc])
-                        list_templates.append(templates[slc])
-                        list_names.append(sub_names[slc])
+                    for patch in pool.imap_unordered(self.pool_worker, self.files):
+                        size_img = len(patch[0])
+
+                        for slc in range(size_img):
+                            list_images.append(patch[0][slc])
+                            list_masks.append(patch[1][slc])
+                            list_templates.append(patch[2][slc])
+                            list_names.append(patch[3][slc])
+            
                 except:
                     pass 
 
@@ -248,7 +267,6 @@ class MyDataset(Dataset, MetaParameters):
         self.masks = ds_masks
         self.templates = ds_templates
         self.names = ds_names
-        # self.kernel_size = chklsz.kernel_size(unet_type = None) // 4
         self.kernel_size = chklsz.kernel_size(unet_type = None)
 
         for i in range(len(self.images)):

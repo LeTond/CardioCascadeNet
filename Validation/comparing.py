@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.1
-Date: 03-09-2024
+Version: 1.3
+Date: 13-12-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -19,40 +19,36 @@ import numpy as np
 import nibabel as nib
 import pandas as pd
 
-import numpy
-
 
 
 class CompareMatrix(MetaParameters):
-    def __init__(self, path_to_label: str, path_to_prediction: str, layer: int, path_to_bull_templs: str = None):
+    def __init__(self, path_to_mask: str, path_to_prediction: str, num_class: int):
         super(MetaParameters, self).__init__()
 
-        self.path_to_label = path_to_label
+        self.path_to_mask = path_to_mask
         self.path_to_prediction = path_to_prediction
-        self.path_to_bull_templs = path_to_bull_templs
-        self.layer = layer
+        self.num_class = num_class
 
-        self.label = self.load_matrix(self.path_to_label, layer, False, 'etalon')
-        self.prediction = self.load_matrix(self.path_to_prediction, layer, True, 'predict')
-        # self.bull_templs = self.load_matrix(self.path_to_bull_templs, layer, True, 'predict')
+        self.mask = self.load_matrix(self.path_to_mask, num_class, False, 'etalon')
+        self.prediction = self.load_matrix(self.path_to_prediction, num_class, True, 'predict')
         
-        self.length = self.label.shape[-1]
+        self.length = self.mask.shape[-1]
 
         self.smooth = 1e-5
-        self.GT = self.label.sum()
+        self.GT = self.mask.sum()
         self.CM = self.prediction.sum()
-        self.TP = (self.label * self.prediction).sum()
+        self.TP = (self.mask * self.prediction).sum()
         self.FN = np.abs(self.GT - self.TP)
         self.FP = np.abs(self.CM - self.TP)
 
     def sub_name(self):
-        name = self.path_to_label.split('/')[-1]
+        name = self.path_to_mask.split('/')[-1]
         name = name.rstrip('.nii')
         
         return name
 
     @staticmethod
-    def load_matrix(path_to_matrix: str, layer: int, cond: bool, marker: str):
+    def load_matrix(path_to_matrix: str, num_class: int, cond: bool, marker: str):
         matrix = nib.load(path_to_matrix)
         matrix = np.array(matrix.dataobj)
 
@@ -62,55 +58,64 @@ class CompareMatrix(MetaParameters):
         #         matrix[:,:,slc][matrix[:,:,slc]==3] = 2
 
         ##   Myo + Fib
-        # if layer == 2:
+        # if num_class == 2:
         #     matrix[matrix==3] = 2
 
-        matrix[matrix != layer] = 0
-        matrix[matrix == layer] = 1
+        matrix[matrix != num_class] = 0
+        matrix[matrix == num_class] = 1
 
         return matrix                                     
 
     def dice_2d(self):
         list_dsc = []
         for slc in range(self.length):
-            self.GT = self.label[:, :, slc].sum()
+            self.GT = self.mask[:, :, slc].sum()
             self.CM = self.prediction[:, :, slc].sum()
 
-            if self.GT == 0:
-                pass
-            else:
-                self.TP = (self.label[:, :, slc] * self.prediction[:, :, slc]).sum()
-                self.FN = np.abs(self.GT - self.TP)
-                self.FP = np.abs(self.CM - self.TP)
+            # if self.GT == 0:
+            #     pass
+            # else:
+            self.TP = (self.mask[:, :, slc] * self.prediction[:, :, slc]).sum()
+            self.FN = np.abs(self.GT - self.TP)
+            self.FP = np.abs(self.CM - self.TP)
         
             # print(f'{self.sub_name()}: FN pixels {self.FN}, FP pixels {self.FP}, TP pixels: {self.TP}')
             # print(f'{self.sub_name()} Slice: {self.length - slc} Dice = {self.dice()}')
             list_dsc.append(self.dice())
 
-        print(f"Sub {self.sub_name()}: {list_dsc}")
+        # print(f"Sub {self.sub_name()}: {list_dsc}")
 
         return list_dsc
 
     def recall_2d(self):
+        list_rcl = []
+
         for slc in range(self.length):
-            self.GT = self.label[:, :, slc].sum()
+            self.GT = self.mask[:, :, slc].sum()
             self.CM = self.prediction[:, :, slc].sum()
-            self.TP = (self.label[:, :, slc] * self.prediction[:, :, slc]).sum()
+            self.TP = (self.mask[:, :, slc] * self.prediction[:, :, slc]).sum()
             self.FN = np.abs(self.GT - self.TP)
             self.FP = np.abs(self.CM - self.TP)
             
-            print(f'{self.sub_name()} Slice: {self.length - slc} Recall = {self.recall()}')
+            # print(f'{self.sub_name()} Slice: {self.length - slc} Recall = {self.recall()}')
+            list_rcl.append(self.recall())
+        
+        return list_rcl
 
     def precision_2d(self):
+        list_prsn = []
+
         for slc in range(self.length):
-            self.GT = self.label[:, :, slc].sum()
+            self.GT = self.mask[:, :, slc].sum()
             self.CM = self.prediction[:, :, slc].sum()
-            self.TP = (self.label[:, :, slc] * self.prediction[:, :, slc]).sum()
+            self.TP = (self.mask[:, :, slc] * self.prediction[:, :, slc]).sum()
             self.FN = np.abs(self.GT - self.TP)
             self.FP = np.abs(self.CM - self.TP)
             
-            print(f'{self.sub_name()} Slice: {self.length - slc} Precision = {self.precision()}')
-
+            # print(f'{self.sub_name()} Slice: {self.length - slc} Precision = {self.precision()}')
+            list_prsn.append(self.precision())
+        
+        return list_prsn
 
     @staticmethod
     def surface_distances(result, reference, voxelspacing = None, connectivity = 1):
@@ -118,11 +123,11 @@ class CompareMatrix(MetaParameters):
         The distances between the surface voxel of binary objects in result and their
         nearest partner surface voxel of a binary object in reference.
         """
-        result = numpy.atleast_1d(result.astype(np.bool_))
-        reference = numpy.atleast_1d(reference.astype(np.bool_))
+        result = np.atleast_1d(result.astype(np.bool_))
+        reference = np.atleast_1d(reference.astype(np.bool_))
         if voxelspacing is not None:
             voxelspacing = _ni_support._normalize_sequence(voxelspacing, result.ndim)
-            voxelspacing = numpy.asarray(voxelspacing, dtype = numpy.float64)
+            voxelspacing = np.asarray(voxelspacing, dtype = np.float64)
             if not voxelspacing.flags.contiguous:
                 voxelspacing = voxelspacing.copy()
                 
@@ -130,9 +135,9 @@ class CompareMatrix(MetaParameters):
         footprint = generate_binary_structure(result.ndim, connectivity)
         
         # test for emptiness
-        if 0 == numpy.count_nonzero(result): 
+        if 0 == np.count_nonzero(result): 
             raise RuntimeError('The first supplied array does not contain any binary object.')
-        if 0 == numpy.count_nonzero(reference): 
+        if 0 == np.count_nonzero(reference): 
             raise RuntimeError('The second supplied array does not contain any binary object.')    
                 
         # extract only 1-pixel border line of objects
@@ -167,27 +172,27 @@ class CompareMatrix(MetaParameters):
 
     def hausdorff_distance_2d(self): 
         for slc in range(self.length):
-            self.GT = self.label[:, :, slc].sum()
+            self.GT = self.mask[:, :, slc].sum()
             self.CM = self.prediction[:, :, slc].sum()
-            self.TP = (self.label[:, :, slc] * self.prediction[:, :, slc]).sum()
+            self.TP = (self.mask[:, :, slc] * self.prediction[:, :, slc]).sum()
             self.FN = np.abs(self.GT - self.TP)
             self.FP = np.abs(self.CM - self.TP)
             
-            drh = self.hd(self.label[:, :, slc], self.prediction[:, :, slc], 2, 1)
-            # drh = self.hd95(self.label[:,:,slc], self.prediction[:,:,slc], 2, 1)
-            # drh = directed_hausdorff(self.label[:,:,slc], self.prediction[:,:,slc])
-            # drh = max(directed_hausdorff(self.label[:,:,slc], self.prediction[:,:,slc], 2)[0], directed_hausdorff(self.prediction[:,:,slc], self.label[:,:,slc], 2)[0])
+            drh = self.hd(self.mask[:, :, slc], self.prediction[:, :, slc], 2, 1)
+            # drh = self.hd95(self.mask[:,:,slc], self.prediction[:,:,slc], 2, 1)
+            # drh = directed_hausdorff(self.mask[:,:,slc], self.prediction[:,:,slc])
+            # drh = max(directed_hausdorff(self.mask[:,:,slc], self.prediction[:,:,slc], 2)[0], directed_hausdorff(self.prediction[:,:,slc], self.mask[:,:,slc], 2)[0])
             print(f'{self.sub_name()} Slice: {self.length - slc} Hausdorff Distance = {drh}')
 
 
-            # voxel_spacing = np.array(self.label[:,:,slc].GetSpacing())[::-1]
+            # voxel_spacing = np.array(self.mask[:,:,slc].GetSpacing())[::-1]
             # print(voxel_spacing)
 
     def fpr_2d(self):
         for slc in range(self.length):
-            self.GT = self.label[:, :, slc].sum()
+            self.GT = self.mask[:, :, slc].sum()
             self.CM = self.prediction[:, :, slc].sum()
-            self.TP = (self.label[:, :, slc] * self.prediction[:, :, slc]).sum()
+            self.TP = (self.mask[:, :, slc] * self.prediction[:, :, slc]).sum()
             self.FN = np.abs(self.GT - self.TP)
             self.FP = np.abs(self.CM - self.TP)        
             self.TN = np.abs(self.CROPP_KERNEL * self.CROPP_KERNEL - self.GT - self.FP)
@@ -215,13 +220,13 @@ class CompareMatrix(MetaParameters):
         # self.TN = np.abs(192 * 144 - (self.TP + self.FP + self.FN))
         # fpr = round(float((self.FP + self.smooth) / (self.FP + self.TN + self.smooth)), 3)
         
-        tn = int(((self.label == 0) * (self.prediction == 0)).sum())
+        tn = int(((self.mask == 0) * (self.prediction == 0)).sum())
         fpr = 1 - (round(float((tn + self.smooth) / (self.FP + tn + self.smooth)), 3))
         
         return fpr
 
     def hausdorff_distance(self):  
-        drh = max(directed_hausdorff(self.label, self.prediction, 2)[0], directed_hausdorff(self.prediction, self.label, 2)[0])
+        drh = max(directed_hausdorff(self.mask, self.prediction, 2)[0], directed_hausdorff(self.prediction, self.mask, 2)[0])
         # drh = self.hd(u, v, 2, 2)
 
         return drh
@@ -232,7 +237,7 @@ class CompareMatrix(MetaParameters):
         return jac
 
     def tissue_volume(self, matrix):
-        fov = ReadImages(self.path_to_label).get_nii_fov()
+        fov = ReadImages(self.path_to_mask).get_nii_fov()
         volume_size = fov[0] * fov[1] * fov[2]
         mask_volume = round(matrix.sum().item() / 1000 * volume_size, 2)
 
@@ -241,12 +246,11 @@ class CompareMatrix(MetaParameters):
     def tissue_volume_2d(self):
         for slc in range(self.length):     
             print(
-                f'{self.sub_name()} Slice: {self.length - slc} GT volume = {self.tissue_volume(self.label[:, :, slc])} ml'
+                f'{self.sub_name()} Slice: {self.length - slc} GT volume = {self.tissue_volume(self.mask[:, :, slc])} ml'
                 f'Slice: {self.length - slc} CM volume = {self.tissue_volume(self.prediction[:, :, slc])} ml'
                 )
 
-    def pixels_count(self, matrix):
-        
+    def pixels_count(self, matrix): 
         return matrix.sum()
 
     def pixel_count_2d(self):
@@ -254,45 +258,49 @@ class CompareMatrix(MetaParameters):
             print(
                 f'{self.sub_name()} '
                 f'Slice: {self.length - slc} '
-                f'GT pixels = {self.pixels_count(self.label[:, :, slc])} '
+                f'GT pixels = {self.pixels_count(self.mask[:, :, slc])} '
                 f'CM pixels = {self.pixels_count(self.prediction[:, :, slc])}'
                 )
 
-    def print(self):
-        ...
-        # print(f"Statistics was counted for {self.DICT_CLASS[self.layer]} tissue")
-        # print(
-        #     f'{self.sub_name()}: '
-        #     f' Mean Dice = {self.dice()}, '
-        #     f' Mean Recall = {self.recall()}, '
-        #     f' Mean Precision = {self.precision()}, '
-            # f' Mean Jaccard = {self.jaccard()}, '
-            # f' Mean HD = {self.hausdorff_distance()}, '
-            # f' Mean FPR = {self.fpr()}, '
-            # )
-        # print(f'{self.sub_name()}: FN pixels {self.FN}, FP pixels {self.FP}, TP pixels: {self.TP}')
-
-        # print(
-        #     f'{self.sub_name()}: '
-        #     f' GT volume = {self.tissue_volume(self.label)} ml, '
-        #     f' CM volume = {self.tissue_volume(self.prediction)} ml'
-        #     f' Difference = {round(self.tissue_volume(self.label) - self.tissue_volume(self.prediction), 2)} ml'
-        #     )
+    def stat_value(self, name):
+        method = getattr(self, name)
         
-        # print(
-        #     f'{self.sub_name()}: '
-        #     f' Count of GT pixels = {self.pixels_count(self.label)} '
-        #     f' Count of CM pixels = {self.pixels_count(self.prediction)}'
-        #     )
+        return method()
 
-        # self.dice_2d()
-        # self.recall_2d()
-        # self.precision_2d()
-        # self.fpr_2d()
-        # self.hausdorff_distance_2d()
-        # self.tissue_volume_2d()
-        # self.pixel_count_2d()
+    def stat_value_2d(self, name):
+        method = getattr(self, name + '_2d')
+        
+        return method()
 
+    def __str__(self):
+        out_message = ""
+        out_message += (f"Statistics was counted for {self.DICT_CLASS[self.num_class]} tissue ")
+        out_message += (f'{self.sub_name()}: '\
+            f' Mean Dice = {self.dice()}, ' \
+            f' Mean Recall = {self.recall()}, '\
+            f' Mean Precision = {self.precision()}, '\
+            f' Mean Jaccard = {self.jaccard()}, '\
+            # f' Mean HD = {self.hausdorff_distance()}, '\
+            # f' Mean FPR = {self.fpr()}, '\
+            )
+
+        # out_message += (f'{self.sub_name()}: FN pixels {self.FN}, FP pixels {self.FP}, TP pixels: {self.TP}')
+        # out_message += (f'{self.sub_name()}: '\
+        #     f' GT volume = {self.tissue_volume(self.mask)} ml, '\
+        #     f' CM volume = {self.tissue_volume(self.prediction)} ml '\
+        #     f' Difference = {round(self.tissue_volume(self.mask) - self.tissue_volume(self.prediction), 2)} ml ')
+        
+        # out_message += (f'{self.sub_name()}: '\
+        #     f' Count of GT pixels = {self.pixels_count(self.mask)} '\
+        #     f' Count of CM pixels = {self.pixels_count(self.prediction)} ')
+
+        # out_message += (f'{self.dice_2d()}\n{self.recall_2d()}\n{self.precision_2d()}')
+        # out_message += (f'{self.fpr_2d()}\n{self.hausdorff_distance_2d()}')
+        # out_message += (f'{self.tissue_volume_2d()}\n{self.pixel_count_2d()}')
+
+        return out_message
+
+        
 
 
 
