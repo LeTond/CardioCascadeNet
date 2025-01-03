@@ -153,19 +153,19 @@ class Inference(MetaParameters):
         for file_name in dataset_list:
             if file_name.endswith('.nii'):
                 if self.UNET1 is True:
-                    masks_list_01 = self.model_inference(self.NEW_UNET1_MASK_PATH, file_name, None, self.UNET1_FOLD)
+                    masks_list_01 = self.model_inference(self.NEW_UNET1_MASK_PATH, file_name, None, self.UNET1_FOLD, pdf_flag = False)
                     print(f'New subject {file_name} was saved with U-net1 Model')
 
                 if self.UNET2 is True:
-                    masks_list_02 = self.model_inference(self.NEW_UNET2_MASK_PATH, file_name, masks_list_01, self.UNET2_FOLD, 'cropp')
+                    masks_list_02 = self.model_inference(self.NEW_UNET2_MASK_PATH, file_name, masks_list_01, self.UNET2_FOLD, 'cropp', pdf_flag = False)
                     print(f'New subject {file_name} was saved with U-net2 Model')
 
                 if self.UNET3 is True:
-                    masks_list_03 = self.model_inference(self.NEW_UNET3_MASK_PATH, file_name, masks_list_02, self.UNET3_FOLD, 'close_cropp')
+                    masks_list_03 = self.model_inference(self.NEW_UNET3_MASK_PATH, file_name, masks_list_02, self.UNET3_FOLD, 'close_cropp', pdf_flag = False)
                     print(f'New subject {file_name} was saved with U-net3 Model')
 
                 if self.UNET4 is True:
-                    masks_list_04 = self.model_inference(self.NEW_UNET4_MASK_PATH, file_name, masks_list_03, self.UNET4_FOLD, 'cropp', 'myo_level')
+                    masks_list_04 = self.model_inference(self.NEW_UNET4_MASK_PATH, file_name, masks_list_03, self.UNET4_FOLD, 'cropp', 'myo_level', pdf_flag = False)
                     print(f'New subject {file_name} was saved with U-net4 Model')
 
                 if self.UNET5 is True:

@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.2
+Version: 1.3
 Date: 03-09-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
@@ -12,7 +12,7 @@ from Preprocessing.preprocessing import *
 from configuration import meta
 from pprint import pprint
 
-import json
+import json, os
 
 
 #########################################################################################################################

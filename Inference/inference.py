@@ -29,6 +29,7 @@ from Model.unet2D import UNet_2D, UNet_2D_AttantionLayer, SwinUNet, UNetResnet, 
 
 from Preprocessing.preprocessing import *
 from Postprocessing.postprocessing import *
+from Postprocessing.postprocessing import InstancesFinder
 from configuration import *
 
 
@@ -534,14 +535,15 @@ class PdfSaver(MetaParameters):
         
         self.images_list = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
         self.masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
-        self.orig_masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
-        # self.orig_masks_list = ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
+        # self.orig_masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
+        self.orig_masks_list = ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
+        self.fib_masks_list = ReadImages(f"./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}").view_matrix
         # self.fib_masks_list = ReadImages(f"./Dataset/HCM_adult_Unet2_mask_new/{self.file_name}").view_matrix
         
         self.images_list = self.images_list.transpose(2, 0, 1)
         self.masks_list = self.masks_list.transpose(2, 0, 1)
         self.orig_masks_list = self.orig_masks_list.transpose(2, 0, 1)
-        # self.fib_masks_list = self.fib_masks_list.transpose(2, 0, 1)
+        self.fib_masks_list = self.fib_masks_list.transpose(2, 0, 1)
 
         self.smooth = 1e-5
         self.rows = 3
@@ -649,7 +651,7 @@ class PdfSaver(MetaParameters):
                 if page != None and slc != None:
                     MYOv = class_volume[f'Chunk_{self.DICT_CLASS[2]}'][page]
                     FIBv = class_volume[f'Chunk_{self.DICT_CLASS[3]}'][page]
-                    relVolume = round((FIBv[slc] / (FIBv[slc] + MYOv[slc] + self.smooth)) * 100, 2)
+                    relVolume = round((FIBv[slc] / (FIBv[slc] + MYOv[slc] + self.smooth)) * 100, 1)
                     report_title += (f'RelVol of FIB: {relVolume} % ')
 
                 elif page == None and slc == None:
@@ -666,10 +668,13 @@ class PdfSaver(MetaParameters):
 
     def write_class_volume(self, report_title, page = None, slc = None, class_volume = None):
         for key in range(1, self.NUM_CLASS):
+            
             if page != None and slc != None:
-                if class_volume[f"Chunk_{self.DICT_CLASS[key]}"][page][slc] / 1000 > 1:
+                chunk_volume = round(class_volume[f"Chunk_{self.DICT_CLASS[key]}"][page][slc] / 1000, 2)
+
+                if chunk_volume > 1:
                     report_title += (
-                        f'{self.DICT_CLASS[key]}_vol: {class_volume[f"Chunk_{self.DICT_CLASS[key]}"][page][slc] / 1000} ml, ' )
+                        f'{self.DICT_CLASS[key]}: {chunk_volume} ml, ' )
                 
             elif page == None and slc == None:
                 report_title += (
@@ -689,7 +694,7 @@ class PdfSaver(MetaParameters):
         chunk_list_images = list(self.divide_chunks(self.images_list, self.rows))
         chunk_list_masks = list(self.divide_chunks(self.masks_list, self.rows))
         chunk_list_orig_masks = list(self.divide_chunks(self.orig_masks_list, self.rows))
-        # chunk_list_fib_masks = list(self.divide_chunks(self.fib_masks_list, self.rows))
+        chunk_list_fib_masks = list(self.divide_chunks(self.fib_masks_list, self.rows))
 
         for key in range(1, self.NUM_CLASS): 
             volume_dict_class[f'Chunk_{self.DICT_CLASS[key]}'] = list(self.divide_chunks(volume_dict_class[f'Volume_{self.DICT_CLASS[key]}'], self.rows))
@@ -701,7 +706,7 @@ class PdfSaver(MetaParameters):
             images = chunk_list_images[page]
             masks = chunk_list_masks[page]
             orig_masks = chunk_list_orig_masks[page]
-            # fib_masks = chunk_list_fib_masks[page]
+            fib_masks = chunk_list_fib_masks[page]
 
             images_on_page = len(masks)
             
@@ -718,11 +723,11 @@ class PdfSaver(MetaParameters):
                 image_slc = self.preprocess_matrix(images[slc])
                 mask_slc = self.preprocess_matrix(masks[slc])
                 orig_mask_slc = self.preprocess_matrix(orig_masks[slc])
-                # fib_mask_slc  = self.preprocess_matrix(fib_masks[slc])
+                fib_mask_slc  = self.preprocess_matrix(fib_masks[slc])
 
                 ax[slc, 1], mask_slc = self.add_annotate_class(slc, ax[slc, 1], mask_slc)
                 ax[slc, 2], orig_mask_slc = self.add_annotate_class(slc, ax[slc, 2], orig_mask_slc)
-                # ax[slc, 2], fib_mask_slc = self.add_annotate_class(slc, ax[slc, 2], fib_mask_slc)
+                ax[slc, 2], fib_mask_slc = self.add_annotate_class(slc, ax[slc, 2], fib_mask_slc)
 
                 ax[slc, 0].imshow(image_slc, plt.get_cmap('gray'))
 
@@ -742,7 +747,7 @@ class PdfSaver(MetaParameters):
                 report_title = self.threshold_scar(report_title, page, slc, volume_dict_class)
                 report_title = self.write_class_volume(report_title, page, slc, volume_dict_class)
 
-                ax[slc, 1].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
+                ax[slc, 2].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
 
                 figure.tight_layout()
             pp.savefig(figure)
@@ -758,179 +763,3 @@ class PdfSaver(MetaParameters):
         pp.savefig(fig)
         
         pp.close()
-
-
-class InstancesFinder():
-    def __init__(self, old_matrix, kernel, num_class):
-        self.kernel_sz = kernel
-        self.old_matrix = old_matrix
-        self.extra_symbol = 99
-        self.symbols = list(range(2))
-        self.num_class = num_class
-        self.queue = []
-        self.clusters = []
-        self.min_distance = 1
-        self.min_cluster_size = 1
-
-        # Очередь из символов для поиска кластера
-        self.directions_cluster = self.direction_cluster_genertor()
-
-    def direction_cluster_genertor(self):
-        directions_cluster = []
-        
-        for i in range(1, self.min_distance + 1):
-            directions_cluster.append([0, i])
-            directions_cluster.append([0, -i])
-            directions_cluster.append([i, 0])
-            directions_cluster.append([-i, 0])
-            directions_cluster.append([-i, -i])
-            directions_cluster.append([i, i])
-            directions_cluster.append([-i, i])
-            directions_cluster.append([i, -i])
-
-        return directions_cluster
-
-    def find_clusters(self):
-        # Пустая матрица для пометки символов, которые уже участвовали в поиске кластеров
-        markedSymbols = [[0 for i in range(self.kernel_sz)] for i in range(self.kernel_sz)] 
-        
-        # Перебираем все символы матрицы
-        for i in range(self.kernel_sz):
-            for j in range(self.kernel_sz):
-                # Если символ - extra или помечен - пропускаем
-                if (self.num_class == self.extra_symbol or markedSymbols[i][j] == 3):
-                    continue
-                
-                clusterData = {
-                    'extras': [],
-                    'coords': [],
-                    'squares': []}
-                
-                # Добавляем текущий символ в очередь и помечаем его
-                self.queue.append([i, j])
-                markedSymbols[i][j] = self.num_class
-
-                # Пока в очереди что-то есть - перебираем соседние символы
-                while (self.queue):
-                    # Забираем символ из очереди
-                    coords = self.queue.pop()   
-                    # extra и обычные символы добавляем в разные массивы, тк у них разное поведение
-                    
-                    if (self.old_matrix[coords[0]][coords[1]] != self.extra_symbol):
-                        clusterData['coords'].append(coords)
-                    else:
-                        clusterData['extras'].append(coords)
-
-                    # Перебираем все соседние символы
-                    for direction in self.directions_cluster:
-                        neighbour_coords = [coords[0] + direction[0], coords[1] + direction[1]]
-                        try:
-                            # Если соседний символ такой же или это extra (и не помечен) - добавляем его в очередь и помечаем
-                            if ((self.old_matrix[neighbour_coords[0]][neighbour_coords[1]] == self.num_class or 
-                                self.old_matrix[neighbour_coords[0]][neighbour_coords[1]] == self.extra_symbol) and 
-                            markedSymbols[neighbour_coords[0]][neighbour_coords[1]] == 0):
-                            
-                                self.queue.append(neighbour_coords)
-                                markedSymbols[neighbour_coords[0]][neighbour_coords[1]] = 3
-                        except:
-                                pass
-                    
-                # Берем только те кластеры, у которых длина больше 3 (учитывая extra)
-                if (len(clusterData['coords']) + len(clusterData['extras']) >= (self.min_cluster_size + 1)):
-                    clusterData['symbol'] = self.num_class
-                    self.clusters.append(clusterData)
-                # Снимаем пометки с extra текущего кластера, тк они могут быть частью и других кластеров
-                for coords in clusterData['extras']:
-                    markedSymbols[coords[0]][coords[1]] = 0
-
-        return self.clusters
-
-    def iteration(self):
-        ...
-
-    def new_instance_matrix(self):
-        """
-        Преобразуем обычную 2D маску в instance ndim 
-        """
-        main_matrix = []
-        new_matrix = np.copy(self.new_matrix())
-
-        shp_old = new_matrix.shape
-
-        for clss in np.unique(new_matrix):
-            matrix = np.copy(new_matrix)
-
-            if clss < 3:
-                matrix[matrix != clss] = 0
-                main_matrix.append(matrix)
-            elif clss >= 13: 
-                matrix[matrix != clss] = 0
-                matrix[matrix == clss] = 3
-                main_matrix.append(matrix)
-
-        main_matrix = np.array(main_matrix).transpose(2, 1, 0)
-        
-        shp_new =  main_matrix.shape
-        print(f'Matrix shape was changed from {shp_old} to {shp_new}')
-
-        return main_matrix
-
-    def new_matrix(self):
-        """
-        Для класса self.num_class преобразуем каждый отдельный кластер в новый инстанс 
-        """
-        new_matrix = np.copy(self.old_matrix)
-        cluster = self.find_clusters()
-
-        for i in range(len(cluster[:])):
-            for j in range(1, len(cluster[i]['coords'])):
-
-                new_layer = self.num_class + i + 10 # i - from 0 to count of found classes
-                coord_ = cluster[i]['coords'][j]
-                new_matrix[coord_[0]][coord_[1]] = new_layer
-                
-        return new_matrix
-
-    def threshold_matrix(self):
-        """
-        Для группы пикселей размером <= 3 - назначаем класс 99
-        """
-        new_matrix = np.copy(self.old_matrix)
-        cluster = self.find_clusters()
-
-        for i in range(len(cluster[:])):
-            cluster_size = len(cluster[i]['coords'])
-            print(f' Размер {i + 1}-го кластера в пикселях {cluster_size - 1} ')
-            
-            if len(cluster[i]['coords']) <= 3:
-                for j in range(1, len(cluster[i]['coords'])):
-                    new_layer = 99 # i - from 0 to count of found classes
-                    coord_ = cluster[i]['coords'][j]
-                    new_matrix[coord_[0]][coord_[1]] = new_layer
-                    
-        return new_matrix
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.1
+Version: 1.3
 Date: 03-09-2024
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
@@ -36,42 +36,37 @@ def view_img(img):
     plt.show()
 
 
-
 class InstancesFinder():
-    def __init__(self, old_matrix, kernel):      
+    def __init__(self, old_matrix, kernel, num_class):
         self.kernel_sz = kernel
         self.old_matrix = old_matrix
-        self.extraSymbol = 99
+        self.extra_symbol = 99
         self.symbols = list(range(2))
-        self.layer = 3
+        self.num_class = num_class
         self.queue = []
         self.clusters = []
         self.min_distance = 1
         self.min_cluster_size = 1
 
         # Очередь из символов для поиска кластера
-        self.directionsCluster = self.direction_cluster_genertor()
+        self.directions_cluster = self.direction_cluster_genertor()
 
     def direction_cluster_genertor(self):
-        
-        directionsCluster = []
+        directions_cluster = []
         
         for i in range(1, self.min_distance + 1):
-        
-            directionsCluster.append([0, i])
-            directionsCluster.append([0, -i])
-            directionsCluster.append([i, 0])
-            directionsCluster.append([-i, 0])
-            directionsCluster.append([-i, -i])
-            directionsCluster.append([i, i])
-            directionsCluster.append([-i, i])
-            directionsCluster.append([i, -i])
+            directions_cluster.append([0, i])
+            directions_cluster.append([0, -i])
+            directions_cluster.append([i, 0])
+            directions_cluster.append([-i, 0])
+            directions_cluster.append([-i, -i])
+            directions_cluster.append([i, i])
+            directions_cluster.append([-i, i])
+            directions_cluster.append([i, -i])
 
-        return directionsCluster
+        return directions_cluster
 
-    # Поиск кластеров
-    def findClusters(self):
-     
+    def find_clusters(self):
         # Пустая матрица для пометки символов, которые уже участвовали в поиске кластеров
         markedSymbols = [[0 for i in range(self.kernel_sz)] for i in range(self.kernel_sz)] 
         
@@ -79,7 +74,7 @@ class InstancesFinder():
         for i in range(self.kernel_sz):
             for j in range(self.kernel_sz):
                 # Если символ - extra или помечен - пропускаем
-                if (self.layer == self.extraSymbol or markedSymbols[i][j] == 3):
+                if (self.num_class == self.extra_symbol or markedSymbols[i][j] == 3):
                     continue
                 
                 clusterData = {
@@ -89,63 +84,69 @@ class InstancesFinder():
                 
                 # Добавляем текущий символ в очередь и помечаем его
                 self.queue.append([i, j])
-                markedSymbols[i][j] = self.layer
+                markedSymbols[i][j] = self.num_class
 
                 # Пока в очереди что-то есть - перебираем соседние символы
                 while (self.queue):
                     # Забираем символ из очереди
                     coords = self.queue.pop()   
                     # extra и обычные символы добавляем в разные массивы, тк у них разное поведение
-                    
-                    if (self.old_matrix[coords[0]][coords[1]] != self.extraSymbol):
-                        clusterData['coords'].append(coords)
-                    else:
-                        clusterData['extras'].append(coords)      
+                    # print(self.old_matrix[coords[0]][coords[1]], self.extra_symbol)
+                    try:
+                        if (self.old_matrix[coords[0]][coords[1]] != self.extra_symbol):
+                            clusterData['coords'].append(coords)
+                        else:
+                            clusterData['extras'].append(coords)
+                    except:
+                        continue
 
                     # Перебираем все соседние символы
-                    for direction in self.directionsCluster:
-                        neighbourCoords = [coords[0] + direction[0], coords[1] + direction[1]]
+                    for direction in self.directions_cluster:
+                        neighbour_coords = [coords[0] + direction[0], coords[1] + direction[1]]
                         try:
                             # Если соседний символ такой же или это extra (и не помечен) - добавляем его в очередь и помечаем
-                            if ((self.old_matrix[neighbourCoords[0]][neighbourCoords[1]] == self.layer or 
-                                self.old_matrix[neighbourCoords[0]][neighbourCoords[1]] == self.extraSymbol) and 
-                            markedSymbols[neighbourCoords[0]][neighbourCoords[1]] == 0):
+                            if ((self.old_matrix[neighbour_coords[0]][neighbour_coords[1]] == self.num_class or 
+                                self.old_matrix[neighbour_coords[0]][neighbour_coords[1]] == self.extra_symbol) and 
+                            markedSymbols[neighbour_coords[0]][neighbour_coords[1]] == 0):
                             
-                                self.queue.append(neighbourCoords)
-                                markedSymbols[neighbourCoords[0]][neighbourCoords[1]] = 3      
+                                self.queue.append(neighbour_coords)
+                                markedSymbols[neighbour_coords[0]][neighbour_coords[1]] = 3
                         except:
-                                pass
+                            pass
                     
-                # Берем только те кластеры, у которых длина больше 5 (учитывая extra)
+                # Берем только те кластеры, у которых длина больше 3 (учитывая extra)
                 if (len(clusterData['coords']) + len(clusterData['extras']) >= (self.min_cluster_size + 1)):
-                    clusterData['symbol'] = self.layer
+                    clusterData['symbol'] = self.num_class
                     self.clusters.append(clusterData)
+
                 # Снимаем пометки с extra текущего кластера, тк они могут быть частью и других кластеров
                 for coords in clusterData['extras']:
                     markedSymbols[coords[0]][coords[1]] = 0
 
         return self.clusters
 
-
     def iteration(self):
         ...
 
     def new_instance_matrix(self):
-
+        """
+        Преобразуем обычную 2D маску в instance ndim 
+        """
         main_matrix = []
         new_matrix = np.copy(self.new_matrix())
 
         shp_old = new_matrix.shape
 
-        for lyr in np.unique(new_matrix):
+        for clss in np.unique(new_matrix):
             matrix = np.copy(new_matrix)
 
-            if lyr < 3:
-                matrix[matrix != lyr] = 0
+            if clss < 3:
+                matrix[matrix != clss] = 0
                 main_matrix.append(matrix)
-            elif lyr >= 13: 
-                matrix[matrix != lyr] = 0
-                matrix[matrix == lyr] = 3
+
+            elif clss >= 13: 
+                matrix[matrix != clss] = 0
+                matrix[matrix == clss] = 3
                 main_matrix.append(matrix)
 
         main_matrix = np.array(main_matrix).transpose(2, 1, 0)
@@ -156,33 +157,78 @@ class InstancesFinder():
         return main_matrix
 
     def new_matrix(self):
-
+        """
+        Для класса self.num_class преобразуем каждый отдельный кластер в новый инстанс 
+        """
         new_matrix = np.copy(self.old_matrix)
-        cluster = self.findClusters()
+        cluster = self.find_clusters()
 
         for i in range(len(cluster[:])):
             for j in range(1, len(cluster[i]['coords'])):
 
-                new_layer = self.layer + i + 10 # i - from 0 to count of found classes
-                coord_ = cluster[i]['coords'][j]         
+                new_layer = self.num_class + i + 10 # i - from 0 to count of found classes
+                coord_ = cluster[i]['coords'][j]
                 new_matrix[coord_[0]][coord_[1]] = new_layer
                 
         return new_matrix
 
     def threshold_matrix(self):
-
+        """
+        Для группы пикселей размером <= 3 - назначаем класс 99
+        """
         new_matrix = np.copy(self.old_matrix)
-        cluster = self.findClusters()
+        cluster = self.find_clusters()
 
         for i in range(len(cluster[:])):
-            if len(cluster[i]['coords']) == 2:
+            cluster_size = len(cluster[i]['coords'])
+            print(f' Размер {i + 1}-го кластера в пикселях {cluster_size - 1} ')
+            
+            if len(cluster[i]['coords']) <= 3:
                 for j in range(1, len(cluster[i]['coords'])):
-                
-                    new_layer = 2 # i - from 0 to count of found classes
-                    coord_ = cluster[i]['coords'][j]         
+                    new_layer = 99 # i - from 0 to count of found classes
+                    coord_ = cluster[i]['coords'][j]
                     new_matrix[coord_[0]][coord_[1]] = new_layer
                     
         return new_matrix
+
+    def transcheck(self):
+        clusters = self.find_clusters()
+        answer_list = []
+
+        cluster_size = len(clusters)
+        
+        if cluster_size > 0:
+            for ilnd in range(cluster_size):
+                neighbor_list = []
+
+                for clms, row in clusters[ilnd]['coords']:
+                    clms += 1
+                    row += 1
+                    neighbor_list.append(self.old_matrix[clms + 1][row + 1])
+                    neighbor_list.append(self.old_matrix[clms + 0][row + 1])
+                    neighbor_list.append(self.old_matrix[clms + 1][row + 0])
+
+                    neighbor_list.append(self.old_matrix[clms - 1][row - 1])
+                    neighbor_list.append(self.old_matrix[clms - 0][row - 1])
+                    neighbor_list.append(self.old_matrix[clms - 1][row - 0])
+
+                    neighbor_list.append(self.old_matrix[clms + 1][row - 1])
+                    neighbor_list.append(self.old_matrix[clms - 1][row + 1])
+
+                if '0' in str(set(neighbor_list)) and '1' in str(set(neighbor_list)):
+                    answer_list.append('3')
+                elif '0' in str(set(neighbor_list)) and '1' not in str(set(neighbor_list)):
+                    answer_list.append('2')
+                elif '1' in str(set(neighbor_list)) and '0' not in str(set(neighbor_list)):
+                    answer_list.append('1')
+                elif '1' not in str(set(neighbor_list)) and '0' not in str(set(neighbor_list)):
+                    answer_list.append('4')
+                else:
+                    answer_list.append('0')
+        else:
+            answer_list.append('-')
+        
+        return answer_list
 
 
 if __name__ == "__main__":
@@ -201,7 +247,7 @@ if __name__ == "__main__":
     # generate it to npy
 
     image_matrix = view_matrix(read_nii("./Sub03.nii"))
-    image_matrix = image_matrix[:,:,4]
+    image_matrix = image_matrix[:, :, 4]
     # new_instance_matrix = InstancesFinder(image_matrix, kernel = 144).new_instance_matrix()
     # new_instance_matrix = InstancesFinder(image_matrix, kernel = 144).new_matrix()
     
