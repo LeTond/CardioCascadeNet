@@ -37,7 +37,6 @@ class GetListImages(MetaParameters):
     def __init__(self, file_path, dataset_path, unet_type = None, mask_type = None):
         super(MetaParameters, self).__init__()
         self.file_path = file_path
-        self.file_name = file_path.split('/')[-1]
         self.dataset_path = dataset_path
         self.def_coord = None
         self.__unet_type = unet_type
@@ -54,14 +53,14 @@ class GetListImages(MetaParameters):
 
     def nifti_list(self, masks):
         list_images, list_templates = [], []
-        images = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
+        images = ReadImages(f"{self.dataset_path}{self.file_path.split('/')[-1]}").view_matrix
         templates = images.copy()
 
         orig_img_shape = images.shape
 
         if self.mask_type == 'infer_bull_level':
-            # templates = ReadImages(f'./Dataset/HCM_adult_mask/{self.file_name}').view_matrix
-            templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
+            # templates = ReadImages(f"./Dataset/HCM_adult_mask/{self.file_path.split('/')[-1]}").view_matrix
+            templates = ReadImages(f"./Dataset/ALMAZ_Unet3_mask_new/{self.file_path.split('/')[-1]}").view_matrix
 
         if masks is not None:
             images, masks, templates, self.def_coord = \
@@ -88,40 +87,47 @@ class GetListImages(MetaParameters):
 
         return old_dicom
 
-    def dicom_array(self, def_coord = None, masks = None):
+    def dicom_array(self, masks = None):
         list_images, list_templates = [], []
-        folder_name = self.old_dicom(self.file_path)
 
-        images = ReadImages(f"{self.file_path}").get_dcm()
+        num_slc = len(self.file_path)
+        file_name = self.file_path[0].split('/')[-1]
+        img_shp = ReadImages(self.file_path[0]).get_dcm().shape
+
+        images = np.zeros((img_shp[0], img_shp[1], num_slc))
+
+        for slc in range(num_slc):
+            folder_name = self.old_dicom(self.file_path[slc])
+            images[:, :, slc] = ReadImages(f"{self.file_path[slc]}").get_dcm()[:, :, 0]
+        
         templates = images.copy()
-
         orig_img_shape = images.shape
 
         if self.mask_type == 'infer_bull_level':
-            # templates = ReadImages(f'./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}').view_matrix
-            templates = ReadImages(f'./Dataset/HCM_adult_Unet2_mask_new/{self.file_name}').view_matrix
+            templates = np.zeros((img_shp[0], img_shp[1], num_slc))
+
+            for slc in range(num_slc):
+                folder_name = self.old_dicom(self.file_path[slc])
+                templates[:, :, slc] = ReadImages(f"./Dataset/ALMAZ_Unet3_mask_new/{folder_name}/{self.file_path[slc].split('/')[-1]}").get_dcm()[:, :, 0]
 
         if masks is not None:
-            images, masks, templates, def_coord = \
-            CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(def_coord, self.cropp_gap)
+            images, masks, templates, self.def_coord = \
+            CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
         
         else:
             masks = np.zeros((images.shape))
 
-        for slc in range(images.shape[2]):
+        for slc in range(num_slc):
             image, mask, template = \
             PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
-            
-            # image, mask, template = \
-            # PreprocessData(images[:, :, slc], None, templates[:, :, slc], unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
-            
+                        
             image, mask, template = \
             MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
 
             list_images.append(image)
             list_templates.append(template)
 
-        return list_images, list_templates, orig_img_shape, def_coord
+        return list_images, list_templates, orig_img_shape, self.def_coord
 
 
 class PredictionMask(MetaParameters):
@@ -390,54 +396,111 @@ class DicomSaver(MetaParameters):
             new_dicom_array = new_dicom_array / 4095 * 255
             new_dicom_array = new_dicom_array.astype(np.uint8)
 
-            mask = self.masks_list[:,:,0].astype(np.float16)
+            # mask = self.masks_list[:, :, 0].astype(np.float16)
+            mask = self.masks_list.astype(np.float16)
             
-            # new_dicom_array[:,:,2][mask == 1] += 100
-            # new_dicom_array[:,:,2][mask == 2] -= 150
-            # new_dicom_array[:,:,1][mask == 3] -= 220
+            # new_dicom_array[:, :, 2][mask == 1] += 100
+            # new_dicom_array[:, :, 2][mask == 2] -= 150
+            # new_dicom_array[:, :, 1][mask == 3] -= 220
 
-            new_dicom_array[:,:,0][mask == 1] = 51
-            new_dicom_array[:,:,1][mask == 1] = 51
-            new_dicom_array[:,:,2][mask == 1] = 255
+            new_dicom_array[:, :, 0][mask == 1] = 51
+            new_dicom_array[:, :, 1][mask == 1] = 51
+            new_dicom_array[:, :, 2][mask == 1] = 255
 
-            new_dicom_array[:,:,0][mask == 2] = 204
-            new_dicom_array[:,:,1][mask == 2] = 204
-            new_dicom_array[:,:,2][mask == 2] = 0
+            new_dicom_array[:, :, 0][mask == 2] = 204
+            new_dicom_array[:, :, 1][mask == 2] = 204
+            new_dicom_array[:, :, 2][mask == 2] = 0
 
-            new_dicom_array[:,:,0][mask == 3] = 0
-            new_dicom_array[:,:,1][mask == 3] = 153
-            new_dicom_array[:,:,2][mask == 3] = 0
+            new_dicom_array[:, :, 0][mask == 3] = 0
+            new_dicom_array[:, :, 1][mask == 3] = 153
+            new_dicom_array[:, :, 2][mask == 3] = 0
+
+            new_dicom_array[:, :, 0][mask == 4] = 151
+            new_dicom_array[:, :, 1][mask == 4] = 151
+            new_dicom_array[:, :, 2][mask == 4] = 205
+
+            new_dicom_array[:, :, 0][mask == 5] = 204
+            new_dicom_array[:, :, 1][mask == 5] = 14
+            new_dicom_array[:, :, 2][mask == 5] = 34
+
+            new_dicom_array[:, :, 0][mask == 6] = 244
+            new_dicom_array[:, :, 1][mask == 6] = 153
+            new_dicom_array[:, :, 2][mask == 6] = 0
+
+            new_dicom_array[:, :, 0][mask == 7] = 91
+            new_dicom_array[:, :, 1][mask == 7] = 0
+            new_dicom_array[:, :, 2][mask == 7] = 25
+
+            new_dicom_array[:, :, 0][mask == 8] = 47
+            new_dicom_array[:, :, 1][mask == 8] = 144
+            new_dicom_array[:, :, 2][mask == 8] = 33
+
+            new_dicom_array[:, :, 0][mask == 9] = 33
+            new_dicom_array[:, :, 1][mask == 9] = 123
+            new_dicom_array[:, :, 2][mask == 9] = 99
+
+            new_dicom_array[:, :, 0][mask == 10] = 26
+            new_dicom_array[:, :, 1][mask == 10] = 23
+            new_dicom_array[:, :, 2][mask == 10] = 25
+
+            new_dicom_array[:, :, 0][mask == 11] = 24
+            new_dicom_array[:, :, 1][mask == 11] = 124
+            new_dicom_array[:, :, 2][mask == 11] = 99
+
+            new_dicom_array[:, :, 0][mask == 12] = 0
+            new_dicom_array[:, :, 1][mask == 12] = 15
+            new_dicom_array[:, :, 2][mask == 12] = 33
+
+            new_dicom_array[:, :, 0][mask == 13] = 204
+            new_dicom_array[:, :, 1][mask == 13] = 204
+            new_dicom_array[:, :, 2][mask == 13] = 0
+
+            new_dicom_array[:, :, 0][mask == 14] = 0
+            new_dicom_array[:, :, 1][mask == 14] = 134
+            new_dicom_array[:, :, 2][mask == 14] = 0
+
+            new_dicom_array[:, :, 0][mask == 15] = 2
+            new_dicom_array[:, :, 1][mask == 15] = 51
+            new_dicom_array[:, :, 2][mask == 15] = 56
+
+            new_dicom_array[:, :, 0][mask == 16] = 77
+            new_dicom_array[:, :, 1][mask == 16] = 204
+            new_dicom_array[:, :, 2][mask == 16] = 0
+
+            new_dicom_array[:, :, 0][mask == 17] = 0
+            new_dicom_array[:, :, 1][mask == 17] = 88
+            new_dicom_array[:, :, 2][mask == 17] = 0
 
         else:
             new_dicom_array = np.zeros((dcm2.shape[0], dcm2.shape[1], 3, dcm2.shape[2]))
 
             for slc in range(dcm2.shape[2]):
-                new_dicom_array[:,:,:,slc] = cv2.cvtColor(dcm2[:,:,slc], cv2.COLOR_GRAY2RGB)
+                new_dicom_array[:, :, :, slc] = cv2.cvtColor(dcm2[:, :, slc], cv2.COLOR_GRAY2RGB)
 
             new_dicom_array = new_dicom_array / 4095 * 255
             new_dicom_array = new_dicom_array.astype(np.uint8)
-            mask = self.masks_list[:,:,:].astype(np.float16)
+            mask = self.masks_list[:, :, :].astype(np.float16)
             mask = mask.transpose(2, 1, 0)
             
             mask = np.expand_dims(mask, -2)
 
             for slc in range(mask.shape[3]):
                 masks = mask[:,:,0,slc]
-                # new_dicom_array[:,:,2,slc][masks == 1] = 220
-                # new_dicom_array[:,:,1,slc][masks == 2] = 150
-                # new_dicom_array[:,:,2,slc][masks == 3] = 100
+                # new_dicom_array[:, :, 2, slc][masks == 1] = 220
+                # new_dicom_array[:, :, 1, slc][masks == 2] = 150
+                # new_dicom_array[:, :, 2, slc][masks == 3] = 100
 
-                new_dicom_array[:,:,0,slc][masks == 1] = 51
-                new_dicom_array[:,:,1,slc][masks == 1] = 51
-                new_dicom_array[:,:,2,slc][masks == 1] = 255
+                new_dicom_array[:, :, 0, slc][masks == 1] = 51
+                new_dicom_array[:, :, 1, slc][masks == 1] = 51
+                new_dicom_array[:, :, 2, slc][masks == 1] = 255
 
-                new_dicom_array[:,:,0,slc][masks == 2] = 204
-                new_dicom_array[:,:,1,slc][masks == 2] = 204
-                new_dicom_array[:,:,2,slc][masks == 2] = 0
+                new_dicom_array[:, :, 0, slc][masks == 2] = 204
+                new_dicom_array[:, :, 1, slc][masks == 2] = 204
+                new_dicom_array[:, :, 2, slc][masks == 2] = 0
                 
-                new_dicom_array[:,:,0,slc][masks == 3] = 0
-                new_dicom_array[:,:,1,slc][masks == 3] = 153
-                new_dicom_array[:,:,2,slc][masks == 3] = 0
+                new_dicom_array[:, :, 0, slc][masks == 3] = 0
+                new_dicom_array[:, :, 1, slc][masks == 3] = 153
+                new_dicom_array[:, :, 2, slc][masks == 3] = 0
 
             new_dicom_array = new_dicom_array.transpose(0, 1, 3, 2)
 
@@ -445,31 +508,30 @@ class DicomSaver(MetaParameters):
 
     def new_dicom_array_3d(self):
         dcm2 = self.old_dicom().pixel_array
-        # dcm2 = dcm2.transpose(2,1,0)
+        # dcm2 = dcm2.transpose(2, 1, 0)
 
         new_dicom_array = np.zeros((dcm2.shape[0], dcm2.shape[1], 3, dcm2.shape[2]))
 
         for slc in range(dcm2.shape[2]):
-            new_dicom_array[:,:,:,slc] = cv2.cvtColor(dcm2[:,:,slc], cv2.COLOR_GRAY2RGB)
+            new_dicom_array[:, :, :, slc] = cv2.cvtColor(dcm2[:, :, slc], cv2.COLOR_GRAY2RGB)
 
         # new_dicom_array = cv2.cvtColor(dcm2, cv2.COLOR_GRAY2RGB)
         new_dicom_array = new_dicom_array / 4095 * 255
         new_dicom_array = new_dicom_array.astype(np.uint8)
-        mask = self.masks_list[:,:,:].astype(np.float16)
+        mask = self.masks_list[:, :, :].astype(np.float16)
         mask = mask.transpose(2, 1, 0)
         
         mask = np.expand_dims(mask, -2)
 
         for slc in range(mask.shape[3]):
-            msk = mask[:,:,0,slc]
-            new_dicom_array[:,:,2,slc][msk == 1] = 220
-            new_dicom_array[:,:,1,slc][msk == 2] = 150
-            new_dicom_array[:,:,2,slc][msk == 3] = 100
+            msk = mask[:, :, 0, slc]
+            new_dicom_array[:, :,2, slc][msk == 1] = 220
+            new_dicom_array[:, :,1, slc][msk == 2] = 150
+            new_dicom_array[:, :,2, slc][msk == 3] = 100
 
         new_dicom_array = new_dicom_array.transpose(0, 1, 3, 2)
 
         return new_dicom_array
-
 
     def change_value_range_info(self, old_dicom):
         old_dicom.SmallestImagePixelValue = np.min(self.new_dicom_array())
@@ -488,19 +550,20 @@ class DicomSaver(MetaParameters):
         # dcm2 = self.old_dicom().pixel_array
         
         if len(list(old_dicom.pixel_array.shape)) == 2:
-            mask = self.masks_list[:,:,0].astype(np.float16)
+            # mask = self.masks_list.astype(np.float16)
+            mask = self.masks_list.astype(np.int16)
             old_dicom.PixelData = mask.tostring()
         else:
-            mask = self.masks_list[:,:,:].astype(np.float16)
+            mask = self.masks_list.astype(np.float16)
             mask = mask.transpose(2, 1, 0)
             old_dicom.PixelData = mask.tostring()
 
         # mask = self.masks_list[:,:,0].astype(np.float16)
         # old_dicom.PixelData = mask.tostring()
-        new_dir_name = old_dicom.PatientName           
-        fdwr.create_dir(project_name = f'{self.inference_directory}/{new_dir_name}')
-        old_dicom.save_as(f'{self.inference_directory}/{new_dir_name}/{self.dicom_file_name()}')
+        new_dir_name = old_dicom.PatientName
 
+        fdwr.create_dir(project_name = f"{self.inference_directory}/{new_dir_name}")
+        old_dicom.save_as(f"{self.inference_directory}/{new_dir_name}/{self.dicom_file_name()}")
 
     def save_dicom_mask_3d(self):
         old_dicom = self.change_name(self.old_dicom())
@@ -511,7 +574,6 @@ class DicomSaver(MetaParameters):
         fdwr.create_dir(project_name = f'{self.inference_directory}/{new_dir_name}')
         old_dicom.save_as(f'{self.inference_directory}/{new_dir_name}/{self.dicom_file_name()}')
 
-
     def save_dicom(self):
         old_dicom = self.change_name(self.old_dicom())
         old_dicom = self.change_grey_to_color(old_dicom)
@@ -520,9 +582,9 @@ class DicomSaver(MetaParameters):
         old_dicom.PixelData = self.new_dicom_array().tostring()
 
         new_dir_name = old_dicom.PatientName
-        fdwr.create_dir(project_name = f'{self.inference_directory}/{new_dir_name}')
 
-        old_dicom.save_as(f'{self.inference_directory}/{new_dir_name}/{self.dicom_file_name()}')
+        fdwr.create_dir(project_name = f"{self.inference_directory}/{new_dir_name}")
+        old_dicom.save_as(f"{self.inference_directory}/{new_dir_name}/{self.dicom_file_name()}")
 
 
 class PdfSaver(MetaParameters):
@@ -611,7 +673,7 @@ class PdfSaver(MetaParameters):
 
                         weight_mass_y, weight_mass_x = clusters[max_size]['coords'][len(clusters[max_size]['coords'])//2]
 
-                    ax.annotate(f'{self.DICT_CLASS[clss]}', 
+                    ax.annotate(f'{clss}', 
                                 xy = (weight_mass_x, weight_mass_y), 
                                 fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y + 5), 
                                 arrowprops = self.arrowprops,
