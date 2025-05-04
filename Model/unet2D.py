@@ -1,23 +1,24 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.3
-Date: 13-12-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
 
-from configuration import MetaParameters
-from torch import nn
-from collections import OrderedDict
-from Model import resnet
-from torchvision import models
+import math
+import torch
 
 import torch.nn.functional as F
 
-import torch
-import math
+from torch import nn
+from torchvision import models
+from collections import OrderedDict
+
+
+import CardioCascadeNet
 
 
 def window_partition(x, window_size):
@@ -326,10 +327,10 @@ class Decoder(nn.Module):
         return x
 
 
-class SwinUNet(nn.Module, MetaParameters):
+class SwinUNet(nn.Module, CardioCascadeNet.MetaParameters):
     def __init__(self, num_blocks = 3, patch_size = 4):
         super().__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         in_channels = self.CHANNELS
         out_channels = self.NUM_CLASS
@@ -360,11 +361,11 @@ class SwinUNet(nn.Module, MetaParameters):
         return x
 
 
-class UNet_2D(nn.Module, MetaParameters):
+class UNet_2D(nn.Module, CardioCascadeNet.MetaParameters):
 
     def __init__(self):
         super(UNet_2D, self).__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         features = self.FEATURES
         in_channels = self.CHANNELS
@@ -471,10 +472,10 @@ class UNet_2D(nn.Module, MetaParameters):
         )
 
 
-class UNet_2D_AttantionLayer(nn.Module, MetaParameters):
+class UNet_2D_AttantionLayer(nn.Module, CardioCascadeNet.MetaParameters):
     def __init__(self):
         super(UNet_2D_AttantionLayer, self).__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         features = self.FEATURES
         in_channels = self.CHANNELS
@@ -645,11 +646,11 @@ class Attention_2D(nn.Module):
         return x * psi
 
 
-class UNet_2D_mini(nn.Module, MetaParameters):
+class UNet_2D_mini(nn.Module, CardioCascadeNet.MetaParameters):
 
     def __init__(self):
         super(UNet_2D_mini, self).__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         features = self.FEATURES
         in_channels = self.CHANNELS
@@ -832,10 +833,10 @@ class BaseModel(nn.Module):
         #return summary(self, input_shape=(2, 3, 224, 224))
 
 
-class UNetResnet(BaseModel, MetaParameters):
+class UNetResnet(BaseModel, CardioCascadeNet.MetaParameters):
     def __init__(self, backbone='resnet50', pretrained=False, freeze_bn=False, freeze_backbone=False, **_):
         super(UNetResnet, self).__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         features = self.FEATURES
         in_channels = self.CHANNELS
@@ -843,7 +844,7 @@ class UNetResnet(BaseModel, MetaParameters):
         dropout = self.DROPOUT
         freeze_bn = self.FREEZE_BN
 
-        model = getattr(resnet, backbone)(pretrained, norm_layer=nn.BatchNorm2d)
+        model = getattr(CardioCascadeNet.resnet, backbone)(pretrained, norm_layer=nn.BatchNorm2d)
 
         self.initial = list(model.children())[:4]
         if in_channels != 3:
@@ -927,10 +928,10 @@ class UNetResnet(BaseModel, MetaParameters):
             if isinstance(module, nn.BatchNorm2d): module.eval()
 
 
-class SegNet(BaseModel, MetaParameters):
+class SegNet(BaseModel, CardioCascadeNet.MetaParameters):
     def __init__(self, pretrained=False, freeze_bn=False, **_):
         super(SegNet, self).__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         features = self.FEATURES
         in_channels = self.CHANNELS

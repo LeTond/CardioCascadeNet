@@ -1,41 +1,35 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.3
-Date: 13-12-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
 
-from torch import nn
-
-import torch
 import cv2
+import torch
+
 import numpy as np
 import nibabel as nib
-
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as path_effects
 
+from torch import nn
+from scipy import ndimage
 from matplotlib import pylab as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from skimage.transform import resize, rescale       #pip install scikit-image
 from skimage.transform import resize, rescale, downscale_local_mean
 
-from Model.unet2D import UNet_2D, UNet_2D_AttantionLayer, SwinUNet, UNetResnet, SegNet
-# from Model.UNetResnet import UNetResnet
-# from Model.SegNet import SegNet
-
-from Preprocessing.preprocessing import *
-from Postprocessing.postprocessing import *
-from Postprocessing.postprocessing import InstancesFinder
-from configuration import *
+import CardioCascadeNet
 
 
-class GetListImages(MetaParameters):
+
+class PredictListImages(CardioCascadeNet.MetaParameters):
     def __init__(self, file_path, dataset_path, unet_type = None, mask_type = None):
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
         self.file_path = file_path
         self.dataset_path = dataset_path
         self.def_coord = None
@@ -53,27 +47,28 @@ class GetListImages(MetaParameters):
 
     def nifti_list(self, masks):
         list_images, list_templates = [], []
-        images = ReadImages(f"{self.dataset_path}{self.file_path.split('/')[-1]}").view_matrix
+        images = CardioCascadeNet.ReadImages(f"{self.dataset_path}{self.file_path.split('/')[-1]}").view_matrix
         templates = images.copy()
 
         orig_img_shape = images.shape
 
         if self.mask_type == 'infer_bull_level':
-            # templates = ReadImages(f"./Dataset/HCM_adult_mask/{self.file_path.split('/')[-1]}").view_matrix
-            templates = ReadImages(f"./Dataset/ALMAZ_Unet3_mask_new/{self.file_path.split('/')[-1]}").view_matrix
+            # templates = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HCM_adult_mask/{self.file_path.split('/')[-1]}").view_matrix
+            # templates = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/ALMAZ_Unet3_mask_new/{self.file_path.split('/')[-1]}").view_matrix
+            templates = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HCM_adult_Unet3_mask_new/{self.file_path.split('/')[-1]}").view_matrix
 
         if masks is not None:
             images, masks, templates, self.def_coord = \
-            CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+            CardioCascadeNet.CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
         else:
             masks = np.zeros((images.shape))
 
         for slc in range(images.shape[2]):
             image, mask, template = \
-            PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
+            CardioCascadeNet.PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
 
             image, mask, template = \
-            MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
+            CardioCascadeNet.MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
 
             list_images.append(image)
             list_templates.append(template)
@@ -92,13 +87,13 @@ class GetListImages(MetaParameters):
 
         num_slc = len(self.file_path)
         file_name = self.file_path[0].split('/')[-1]
-        img_shp = ReadImages(self.file_path[0]).get_dcm().shape
+        img_shp = CardioCascadeNet.ReadImages(self.file_path[0]).get_dcm().shape
 
         images = np.zeros((img_shp[0], img_shp[1], num_slc))
 
         for slc in range(num_slc):
             folder_name = self.old_dicom(self.file_path[slc])
-            images[:, :, slc] = ReadImages(f"{self.file_path[slc]}").get_dcm()[:, :, 0]
+            images[:, :, slc] = CardioCascadeNet.ReadImages(f"{self.file_path[slc]}").get_dcm()[:, :, 0]
         
         templates = images.copy()
         orig_img_shape = images.shape
@@ -108,21 +103,21 @@ class GetListImages(MetaParameters):
 
             for slc in range(num_slc):
                 folder_name = self.old_dicom(self.file_path[slc])
-                templates[:, :, slc] = ReadImages(f"./Dataset/ALMAZ_Unet3_mask_new/{folder_name}/{self.file_path[slc].split('/')[-1]}").get_dcm()[:, :, 0]
+                templates[:, :, slc] = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/ALMAZ_Unet3_mask_new/{folder_name}/{self.file_path[slc].split('/')[-1]}").get_dcm()[:, :, 0]
 
         if masks is not None:
             images, masks, templates, self.def_coord = \
-            CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+            CardioCascadeNet.CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
         
         else:
             masks = np.zeros((images.shape))
 
         for slc in range(num_slc):
             image, mask, template = \
-            PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
+            CardioCascadeNet.PreprocessData(images[:, :, slc], masks[:, :, slc], templates[:, :, slc], unet_type = self.unet_type, mask_type = self.mask_type).preprocessing
                         
             image, mask, template = \
-            MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
+            CardioCascadeNet.MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
 
             list_images.append(image)
             list_templates.append(template)
@@ -130,18 +125,18 @@ class GetListImages(MetaParameters):
         return list_images, list_templates, orig_img_shape, self.def_coord
 
 
-class PredictionMask(MetaParameters):
+class PredictionMask(CardioCascadeNet.MetaParameters):
     def __init__(self, model, images, templates, image_shp, def_coord, unet_type):
         super().__init__()
 
+        self.kernel_size = CardioCascadeNet.ChooseKernelSize().kernel_size(unet_type)    
+        self.__device = CardioCascadeNet.device
         self.__model = model
-        self.__device = device
         self.__images = images
         self.__image_shp = image_shp
         self.__templates = templates
         self.__def_coord = def_coord
         self.__unet_type = unet_type
-        self.kernel_size = chklsz.kernel_size(unet_type)    
 
     @property
     def model(self):
@@ -166,6 +161,10 @@ class PredictionMask(MetaParameters):
     @property
     def def_coord(self):
         return self.__def_coord
+
+    @property
+    def unet_type(self):
+        return self.__unet_type
 
     def predict(self, image):
         self.model.eval()
@@ -216,7 +215,7 @@ class PredictionMask(MetaParameters):
 
     @property
     def get_predicted_mask(self):
-        mask_list = []
+        mask_list, template_list = [], []
         smooth = 1e-6
 
         for slc in range(0, len(self.images)):
@@ -252,31 +251,34 @@ class PredictionMask(MetaParameters):
             predict, image = self.predict(image)
             predict = np.reshape(predict, (self.kernel_size, self.kernel_size))
             predict = np.array(predict, dtype = np.float32)
-            ########################################################################
 
-            predict = self.threshhold_myo_level(predict)
+            template = np.reshape(template, (self.kernel_size, self.kernel_size))
+            template = np.array(template, dtype = np.float32)
+
+            ########################################################################
+            predict = self.threshhold_lv_level(predict)
             predict = self.threshhold_scar(predict)
             predict = self.expand_matrix(predict, self.image_shp[0], self.image_shp[1])
             predict = resize(predict, (self.image_shp[0], self.image_shp[1]), anti_aliasing_sigma = False)
-            
+
             mask_list.append(predict)
 
         mask_list = self.postprocess_matrix(mask_list)
 
         return mask_list
 
-    def threshhold_myo_level(self, predict):
-        if self.UNET4 is True and self.UNET5 is False:
+    def threshhold_lv_level(self, predict):
+        if self.unet_type == 'lv_level':
             try: 
                 unique, counts = np.unique(predict, return_counts = True)
                 test_dict = dict(zip(unique, counts))
-                myo_level = int(list(test_dict.keys())[0])
+                lv_level = int(list(test_dict.keys())[0])
 
-                if myo_level != 0:
-                    predict[predict != 0] = myo_level
+                if lv_level != 0:
+                    predict[predict != 0] = lv_level
                 else:
-                    myo_level = int(list(test_dict.keys())[1])
-                    predict[predict != 0] = myo_level
+                    lv_level = int(list(test_dict.keys())[1])
+                    predict[predict != 0] = lv_level
             except:
                 pass
 
@@ -284,13 +286,20 @@ class PredictionMask(MetaParameters):
 
     def threshhold_scar(self, predict):
         try:
-            if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
+
+            if self.unet_type == 'close_cropp' or self.unet_type == 'cropp':
+            # if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
                 pred_fib = predict[predict == 3]            
                 pred_myo = predict[predict == 2]
+                pred_lv = predict[predict == 1]
+                
                 rel_volume = (pred_fib.sum().item() + 1e-4) / (pred_fib.sum().item() + pred_myo.sum().item() + 1e-4) * 100
                 
                 if rel_volume < 1 and (predict == 3).sum().item() > 0:
                     predict[predict == 3] = 2
+
+                elif pred_lv.sum().item() / (pred_fib.sum().item() + pred_myo.sum().item() + 1e-4) * 100 < 5:
+                    predict[predict == 1] = 3
         except:
             pass
 
@@ -330,9 +339,9 @@ class PredictionMask(MetaParameters):
         return mask_list
 
 
-class NiftiSaver(MetaParameters):
+class NiftiSaver(CardioCascadeNet.MetaParameters):
     def __init__(self, masks_list, file_path, inference_directory):         
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         self.__masks_list = masks_list
         self.__inference_directory = inference_directory
@@ -356,9 +365,9 @@ class NiftiSaver(MetaParameters):
         nib.save(new_image, f'{self.inference_directory}/{self.file_name}')
 
 
-class DicomSaver(MetaParameters):
+class DicomSaver(CardioCascadeNet.MetaParameters):
     def __init__(self, masks_list, file_path, inference_directory):         
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         self.masks_list = masks_list
         self.file_name = file_path
@@ -587,20 +596,24 @@ class DicomSaver(MetaParameters):
         old_dicom.save_as(f"{self.inference_directory}/{new_dir_name}/{self.dicom_file_name()}")
 
 
-class PdfSaver(MetaParameters):
+class PdfSaver(CardioCascadeNet.MetaParameters):
     def __init__(self, file_path, dataset_path, inference_directory):
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         self.dataset_path = dataset_path
         self.inference_directory = inference_directory
         self.file_name = file_path.split('/')[-1]
         
-        self.images_list = ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
-        self.masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
-        # self.orig_masks_list = ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
-        self.orig_masks_list = ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
-        self.fib_masks_list = ReadImages(f"./Dataset/ALMAZ_Unet3_mask_new/{self.file_name}").view_matrix
-        # self.fib_masks_list = ReadImages(f"./Dataset/HCM_adult_Unet2_mask_new/{self.file_name}").view_matrix
+        self.images_list = CardioCascadeNet.ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
+        self.masks_list = CardioCascadeNet.ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
+        self.orig_masks_list = CardioCascadeNet.ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
+        # self.orig_masks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
+        # self.orig_masks_list = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/BULLEYE_mask/{self.file_name}").view_matrix
+        self.fib_masks_list = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HCM_adult_Unet3_mask_new/{self.file_name}").view_matrix
+        # self.fib_masks_list = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HCM_adult_Unet2_mask_new/{self.file_name}").view_matrix
+        # self.fib_masks_list = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/ALMAZ_Unet3_mask_new/{self.file_name}").view_matrix
+        # self.fib_masks_list = CardioCascadeNet.ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
+        # self.fib_masks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
         
         self.images_list = self.images_list.transpose(2, 0, 1)
         self.masks_list = self.masks_list.transpose(2, 0, 1)
@@ -626,7 +639,7 @@ class PdfSaver(MetaParameters):
     @property
     def get_stats_parameters(self):
         volume_list_dict = {}
-        fov = ReadImages(f"{self.dataset_path}{self.file_name}").get_nii_fov()
+        fov = CardioCascadeNet.ReadImages(f"{self.dataset_path}{self.file_name}").get_nii_fov()
         volume_size = fov[0] * fov[1] * fov[2]
 
         for key in range(1, self.NUM_CLASS):
@@ -657,33 +670,35 @@ class PdfSaver(MetaParameters):
                     mark_mask = mask_slc.copy()
                     mark_mask[mark_mask != clss] = 0
 
-                    if clss == 1:
-                        weight_mass_y, weight_mass_x = ndimage.measurements.center_of_mass(mark_mask)
+            #         if clss == 1:
+            #             weight_mass_y, weight_mass_x = ndimage.measurements.center_of_mass(mark_mask)
 
-                    else:
-                        clsrf = InstancesFinder(mark_mask, kernel = np.min(mark_mask.shape), num_class = clss)
-                        clusters = clsrf.find_clusters()
-                        max_size = 0
+            #         else:
+            #             clsrf = CardioCascadeNet.InstancesFinder(mark_mask, kernel = np.min(mark_mask.shape), num_class = clss)
+            #             clusters = clsrf.find_clusters()
+            #             max_size = 0
                         
-                        for i in range(len(clusters[:])):
-                            cluster_size = len(clusters[i]['coords'])
+            #             for i in range(len(clusters[:])):
+            #                 cluster_size = len(clusters[i]['coords'])
                             
-                            if cluster_size > len(clusters[max_size]['coords']):
-                                max_size = i
+            #                 if cluster_size > len(clusters[max_size]['coords']):
+            #                     max_size = i
 
-                        weight_mass_y, weight_mass_x = clusters[max_size]['coords'][len(clusters[max_size]['coords'])//2]
+            #             weight_mass_y, weight_mass_x = clusters[max_size]['coords'][len(clusters[max_size]['coords'])//2]
 
-                    ax.annotate(f'{clss}', 
-                                xy = (weight_mass_x, weight_mass_y), 
-                                fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y + 5), 
-                                arrowprops = self.arrowprops,
-                                bbox = self.bbox, 
-                                color = 'black')
+            #         ax.annotate(f'{clss}', 
+            #                     xy = (weight_mass_x, weight_mass_y), 
+            #                     fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y + 5), 
+            #                     arrowprops = self.arrowprops,
+            #                     bbox = self.bbox, 
+            #                     color = 'black')
 
-                    ax.plot([weight_mass_x], [weight_mass_y],  marker = ".", color = 'orange')
+            #         ax.plot([weight_mass_x], [weight_mass_y],  marker = ".", color = 'orange')
 
             for key in range(1, 4): 
                 mask_slc[0][key - 1] = key
+
+            pass
 
         else:
             for clss in range(self.NUM_CLASS):
@@ -744,6 +759,23 @@ class PdfSaver(MetaParameters):
 
         return report_title
 
+    def change_17seg_classes(self, bull_mask):
+        bull_mask[bull_mask==7] = 1
+        bull_mask[bull_mask==8] = 2
+        bull_mask[bull_mask==9] = 3
+        bull_mask[bull_mask==10] = 4
+        bull_mask[bull_mask==11] = 5
+        bull_mask[bull_mask==12] = 6
+
+        bull_mask[bull_mask==13] = 1
+        bull_mask[bull_mask==14] = 2
+        bull_mask[bull_mask==15] = 4
+        bull_mask[bull_mask==16] = 5
+
+        bull_mask[bull_mask==17] = 2
+
+        return bull_mask
+
     @property
     def save_pdf(self):
         volume_list_dict = self.get_stats_parameters
@@ -778,7 +810,7 @@ class PdfSaver(MetaParameters):
                 num_images = 3
 
             figure, ax = plt.subplots(nrows = num_images, ncols = 3, figsize = (12, 12))
-            colormap = plt.cm.get_cmap('viridis')  # 'plasma' or 'viridis'
+            colormap = plt.get_cmap('viridis')  # 'plasma' or 'viridis'
             colormap.set_under('k', alpha = .5)
 
             for slc in range(images_on_page):                    
@@ -788,34 +820,37 @@ class PdfSaver(MetaParameters):
                 fib_mask_slc  = self.preprocess_matrix(fib_masks[slc])
 
                 ax[slc, 1], mask_slc = self.add_annotate_class(slc, ax[slc, 1], mask_slc)
-                ax[slc, 2], orig_mask_slc = self.add_annotate_class(slc, ax[slc, 2], orig_mask_slc)
-                ax[slc, 2], fib_mask_slc = self.add_annotate_class(slc, ax[slc, 2], fib_mask_slc)
+                # ax[slc, 2], orig_mask_slc = self.add_annotate_class(slc, ax[slc, 2], orig_mask_slc)
+                # ax[slc, 2], fib_mask_slc = self.add_annotate_class(slc, ax[slc, 2], fib_mask_slc)
+
+                orig_mask_slc = self.change_17seg_classes(orig_mask_slc)
+                mask_slc = self.change_17seg_classes(mask_slc)
 
                 ax[slc, 0].imshow(image_slc, plt.get_cmap('gray'))
 
                 ax[slc, 1].imshow(image_slc, plt.get_cmap('gray'))
-                ax[slc, 1].imshow(mask_slc, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
-                ax[slc, 1].contour(mask_slc, alpha = 0.5)
+                ax[slc, 1].imshow(mask_slc, alpha = 0.2, interpolation = None, cmap = colormap,  vmin = 0.5)
+                ax[slc, 1].contour(mask_slc, alpha = 0.9, cmap = colormap,  vmin = 0.5)
+
+                # ax[slc, 2].imshow(image_slc, plt.get_cmap('gray'))
+                # ax[slc, 2].imshow(orig_mask_slc, alpha = 0.2, interpolation = None, cmap = colormap,  vmin = 0.5)
+                # ax[slc, 2].contour(orig_mask_slc, alpha = 0.9, cmap = colormap,  vmin = 0.5)
 
                 ax[slc, 2].imshow(image_slc, plt.get_cmap('gray'))
-                ax[slc, 2].imshow(orig_mask_slc, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
-                ax[slc, 2].contour(orig_mask_slc, alpha = 0.5)
-
-                # ax[slc, 3].imshow(image_slc, plt.get_cmap('gray'))
-                # ax[slc, 3].imshow(fib_mask_slc, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
-                # ax[slc, 3].contour(fib_mask_slc, alpha = 0.5)
+                ax[slc, 2].imshow(fib_mask_slc, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
+                ax[slc, 2].contour(fib_mask_slc, alpha = 0.5)
 
                 report_title = ''
                 report_title = self.threshold_scar(report_title, page, slc, volume_dict_class)
-                report_title = self.write_class_volume(report_title, page, slc, volume_dict_class)
+                # report_title = self.write_class_volume(report_title, page, slc, volume_dict_class)
 
-                ax[slc, 2].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
+                ax[slc, 1].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
 
                 figure.tight_layout()
             pp.savefig(figure)
 
         report_title = ''
-        report_title = self.write_class_volume(report_title, None, None, volume_dict_class)
+        # report_title = self.write_class_volume(report_title, None, None, volume_dict_class)
         report_title = self.threshold_scar(report_title, None, None, volume_dict_class)
 
         fig = plt.figure(figsize = (8, 8))

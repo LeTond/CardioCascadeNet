@@ -1,20 +1,21 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.1
-Date: 03-09-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
-from configuration import MetaParameters
+import torch
+import torch.nn.functional as F
+
 from torch import nn
 from collections import OrderedDict
-from Model import resnet
 from torchvision import models
 
-import torch.nn.functional as F
-import torch
+
+import CardioCascadeNet
 
 
 def initialize_weights(*models):
@@ -50,10 +51,10 @@ class BaseModel(nn.Module):
         #return summary(self, input_shape=(2, 3, 224, 224))
 
 
-class SegNet(BaseModel, MetaParameters):
+class SegNet(BaseModel, CardioCascadeNet.MetaParameters):
     def __init__(self, pretrained=False, freeze_bn=False, **_):
         super(SegNet, self).__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         features = self.FEATURES
         in_channels = self.CHANNELS

@@ -1,23 +1,19 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.1
-Date: 03-09-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
 
-from Preprocessing.preprocessing import ReadImages
-from Postprocessing.postprocessing import *
-from Preprocessing.dirs_logs import *
-from Training.dataset import *
+import torch
 
-from configuration import *
+from torch import nn
 
 
-path_to_origs = meta.ORIGS_DIR
-path_to_masks = meta.MASKS_DIR
+import CardioCascadeNet
 
 
 class DiceLoss(nn.Module):
@@ -43,11 +39,12 @@ def create_hist(value_list: list):
     plt.title("Distribution of dice")
 
 
-class MaskPrediction(MetaParameters):
+class MaskPrediction(CardioCascadeNet.MetaParameters):
     def __init__(self):
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
         self.ds = DiceLoss()
-
+        self.device = CardioCascadeNet.device
+    
     def prediction_masks(self, model, dataset_):
         model.eval()
         dice_layers = {}
@@ -58,7 +55,7 @@ class MaskPrediction(MetaParameters):
 
         with torch.no_grad():
             for inputs, labels, sub_names in dataset_:
-                inputs, labels, sub_names = inputs.to(device), labels.to(device), list(sub_names)   
+                inputs, labels, sub_names = inputs.to(self.device), labels.to(self.device), list(sub_names)   
 
                 predict = torch.softmax(model(inputs), dim = 1)
                 predict = torch.argmax(predict, dim = 1)
@@ -108,13 +105,14 @@ class TissueMetrics(MaskPrediction):
 
     def __init__(self, Net, dataset=None):         
         super(MaskPrediction, self).__init__()
+        
         model = Net
         dataset_ = dataset
         mp = MaskPrediction().prediction_masks(model, dataset_)
 
-        if meta.UNET2 is True:
+        if self.UNET2 is True:
             self.kernel_sz = self.CROPP_KERNEL
-        elif meta.UNET2 is False:
+        elif self.UNET2 is False:
             self.kernel_sz = self.KERNEL
 
         self.dict_class_stats = self.create_dict_class()

@@ -7,14 +7,17 @@ Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
-from configuration import MetaParameters
+
+import torch
+import torch.nn.functional as F
+
 from torch import nn
 from collections import OrderedDict
-from Model import resnet
 from torchvision import models
 
-import torch.nn.functional as F
-import torch
+
+import CardioCascadeNet
+
 
 
 def initialize_weights(*models):
@@ -50,10 +53,10 @@ class BaseModel(nn.Module):
         #return summary(self, input_shape=(2, 3, 224, 224))
 
 
-class UNetResnet(BaseModel, MetaParameters):
+class UNetResnet(BaseModel, CardioCascadeNet.MetaParameters):
     def __init__(self, backbone='resnet50', pretrained=False, freeze_bn=False, freeze_backbone=False, **_):
         super(UNetResnet, self).__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         features = self.FEATURES
         in_channels = self.CHANNELS
@@ -61,7 +64,7 @@ class UNetResnet(BaseModel, MetaParameters):
         dropout = self.DROPOUT
         freeze_bn = self.FREEZE_BN
 
-        model = getattr(resnet, backbone)(pretrained, norm_layer=nn.BatchNorm2d)
+        model = getattr(CardioCascadeNet.resnet, backbone)(pretrained, norm_layer=nn.BatchNorm2d)
 
         self.initial = list(model.children())[:4]
         if in_channels != 3:

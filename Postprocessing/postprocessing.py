@@ -1,23 +1,26 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.3
-Date: 03-09-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
 
-import math
 import sys
+import math
 
-import matplotlib.pyplot as plt
-import random as rand
 import numpy as np
 import nibabel as nib
+import random as rand
+import matplotlib.pyplot as plt
 
 from time import time
 from pprint import pprint    
+
+
+import CardioCascadeNet
 
 
 def read_nii(path_to_nii):
@@ -34,6 +37,109 @@ def view_matrix(img):
 def view_img(img):
     plt.imshow(img)
     plt.show()
+
+
+class MaskPostprocessing(CardioCascadeNet.MetaParameters):
+    def __init__(self, file_name = None, image = None, masks_list = None, mask_type = None):    
+        super(CardioCascadeNet.MetaParameters, self).__init__()
+        self.__image = image
+        self.__masks_list = masks_list
+        self.__mask_type = mask_type
+        self.__file_name = file_name
+
+    @property
+    def file_name(self):
+        return self.__file_name
+
+    @property
+    def image(self):
+        return self.__image
+
+    @property
+    def masks_list(self):
+        return self.__masks_list
+    
+    @property
+    def mask_type(self):
+        return self.__mask_type
+
+    @staticmethod
+    def postprocess_matrix(mask_list):
+        shp = list(mask_list[0].shape)
+        zero_matrix = np.zeros((len(mask_list), shp[0], shp[1]))
+
+        for slc in range(len(mask_list)):
+            zero_matrix[slc, :shp[0], :shp[1]] = mask_list[slc]
+        
+        mask_list = zero_matrix.copy()
+        mask_list = np.array(mask_list, dtype = np.float32)
+        mask_list = mask_list.transpose(1, 2, 0)
+        mask_list = np.round(mask_list)
+        
+        return mask_list
+
+    @property
+    def check_bull_apex(self):
+        masks_list = self.masks_list.copy()
+        template = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HCM_adult_Unet3_mask_new/{str(self.file_name).split('/')[-1]}").view_matrix
+
+        shp = list(masks_list.shape)
+
+        zero_matrix = np.zeros((shp[0], shp[1], shp[2]))
+
+        for slc in range(shp[2]):
+            new_mask = masks_list[:, :, slc]
+            fib_mask = template[:, :, slc]
+
+            if (fib_mask == 1).any():
+                zero_matrix[:shp[0], :shp[1], slc] = new_mask
+            else:
+                fib_mask[fib_mask != 0] = 17
+                zero_matrix[:shp[0], :shp[1], slc] = fib_mask
+
+        mask_list = zero_matrix.copy()
+
+        return mask_list
+
+
+    # def threshold_scar(self, report_title, page = None, slc = None, class_volume = None):
+    #     try:
+    #         if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
+    #             if page != None and slc != None:
+    #                 MYOv = class_volume[f'Chunk_{self.DICT_CLASS[2]}'][page]
+    #                 FIBv = class_volume[f'Chunk_{self.DICT_CLASS[3]}'][page]
+    #                 relVolume = round((FIBv[slc] / (FIBv[slc] + MYOv[slc] + self.smooth)) * 100, 1)
+    #                 report_title += (f'RelVol of FIB: {relVolume} % ')
+
+    #             elif page == None and slc == None:
+    #                 related_full_fib_volume = round((
+    #                     (sum(class_volume[f'Volume_{self.DICT_CLASS[3]}'])) / 
+    #                     (sum(class_volume[f'Volume_{self.DICT_CLASS[2]}']) + 
+    #                         sum(class_volume[f'Volume_{self.DICT_CLASS[3]}']) + self.smooth)) * 100, 0)
+    #                 report_title += f'Full relative volume: ≈ {related_full_fib_volume} %'
+
+    #     except:
+    #         pass
+
+    #     return report_title
+
+    # def change_17seg_classes(self, bull_mask):
+    #     bull_mask[bull_mask==7] = 1
+    #     bull_mask[bull_mask==8] = 2
+    #     bull_mask[bull_mask==9] = 3
+    #     bull_mask[bull_mask==10] = 4
+    #     bull_mask[bull_mask==11] = 5
+    #     bull_mask[bull_mask==12] = 6
+
+    #     bull_mask[bull_mask==13] = 1
+    #     bull_mask[bull_mask==14] = 2
+    #     bull_mask[bull_mask==15] = 4
+    #     bull_mask[bull_mask==16] = 5
+
+    #     bull_mask[bull_mask==17] = 2
+
+    #     return bull_mask
+
 
 
 class InstancesFinder():

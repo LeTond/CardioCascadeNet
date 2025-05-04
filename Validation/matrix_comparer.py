@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.3
-Date: 13-12-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -10,8 +10,9 @@ GitHub: https://github.com/LeTond
 
 import os
 import numpy as np
-from Preprocessing.preprocessing import *
 
+
+import CardioCascadeNet
 
 
 """
@@ -23,14 +24,14 @@ if two images is equal: pass
 def images_list():
 	all_images_list = []
 
-	file_list = sorted(os.listdir('./Dataset/HEAD_origin/'))
+	file_list = sorted(os.listdir('./CardioCascadeNet/Dataset/HEAD_origin/'))
 
 	for file_name in file_list:
 	# for file_name in ['Sub099.nii', 'Sub099.nii']:
 		if file_name == '.DS_Store':
 			file_list.remove(file_name)
 		else:
-			image = ReadImages(f"./Dataset/HEAD_origin/{file_name}").view_matrix
+			image = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HEAD_origin/{file_name}").view_matrix
 			all_images_list.append(np.sum(image))
 
 	return all_images_list, file_list

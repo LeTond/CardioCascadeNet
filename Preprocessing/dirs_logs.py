@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.2
-Date: 03-09-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -11,11 +11,9 @@ GitHub: https://github.com/LeTond
 import os
 
 
-
 class FileDirectoryWorker():
-    # def __init__(self):
-    #     self.project_name = project_name
-    #     self.results = results
+    def __init__(self):
+        super().__init__()
 
     def log_stats(self, project_name: str, results = None):
         file = open(f'{project_name}_log.txt', 'a')
@@ -32,4 +30,3 @@ class FileDirectoryWorker():
             my_log = open(f'{project_name}_log.txt', 'a')
             my_log.close()
         
-

@@ -1,18 +1,28 @@
-from parameters import MetaParameters
+ # -*- coding: utf-8 -*-
+"""
+Name: Anatoliy Levchuk
+Version: 1.4
+Date: 04-05-2025
+Email: feuerlag999@yandex.ru
+GitHub: https://github.com/LeTond
+"""
+
 
 import torch
 
 from torch import nn
-from collections import OrderedDict
-# from Model import resnet
 from torchvision import models
+from collections import OrderedDict
 
 
-class UNet_3D(nn.Module, MetaParameters):
+import CardioCascadeNet
+
+
+class UNet_3D(nn.Module, CardioCascadeNet.MetaParameters):
 
     def __init__(self):
         super(UNet_3D, self).__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         features = self.FEATURES
         in_channels = self.CHANNELS
@@ -75,8 +85,8 @@ class UNet_3D(nn.Module, MetaParameters):
         dec1 = self.dropout(dec1)
         dec1 = self.decoder1(dec1)
 
-        # return torch.softmax(self.conv(dec1), dim=1)
-        return torch.sigmoid(self.conv(dec1))
+        return torch.softmax(self.conv(dec1), dim=1)
+        # return torch.sigmoid(self.conv(dec1))
 
     @staticmethod
     def Conv2x2(in_channels, features, name):
@@ -119,11 +129,11 @@ class UNet_3D(nn.Module, MetaParameters):
         )
 
 
-class UNet_3D_AttantionLayer(nn.Module, MetaParameters):
+class UNet_3D_AttantionLayer(nn.Module, CardioCascadeNet.MetaParameters):
 
     def __init__(self):
         super(UNet_3D_AttantionLayer, self).__init__()
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
         features = self.FEATURES
         in_channels = self.CHANNELS
@@ -195,8 +205,8 @@ class UNet_3D_AttantionLayer(nn.Module, MetaParameters):
         dec1 = self.dropout(dec1)
         dec1 = self.decoder1(dec1)
 
-        # return torch.softmax(self.conv(dec1), dim=1)
-        return torch.sigmoid(self.conv(dec1))
+        return torch.softmax(self.conv(dec1), dim=1)
+        # return torch.sigmoid(self.conv(dec1))
 
     @staticmethod
     def Conv2x2(in_channels, features, name):

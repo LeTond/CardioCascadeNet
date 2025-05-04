@@ -1,30 +1,27 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.3
-Date: 13-12-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
-
 import torch
 import numpy as np
 import torchvision.transforms.functional as TF
-import torchvision.transforms as transforms
 
 from torch.utils.data import Dataset
 from multiprocessing import Pool, TimeoutError, current_process
 
-from Preprocessing.preprocessing import *
-from configuration import MetaParameters
-from Preprocessing.dirs_logs import *
-from Inference.inference import *
+
+import CardioCascadeNet
 
 
-class GetData(MetaParameters):
+
+class GetData(CardioCascadeNet.MetaParameters):
     def __init__(self, files = None, augmentation = None):
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
         self.files = files
         self.augmentation = augmentation
         
@@ -76,7 +73,7 @@ class GetData(MetaParameters):
 
         for sub_name in sub_names:
             if sub_name.endswith('.nii'):
-                masks = ReadImages(f"{self.MASKS_DIR}/{sub_name}").view_matrix
+                masks = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{sub_name}").view_matrix
 
                 for key in range(1, self.NUM_CLASS):
                     if (masks == key).any():
@@ -128,8 +125,8 @@ class GetData(MetaParameters):
         list_images, list_masks, list_templates, list_names = [], [], [], []
 
         if file_name.endswith('.nii'):
-            images = ReadImages(f"{self.ORIGS_DIR}/{file_name}").view_matrix
-            masks = ReadImages(f"{self.MASKS_DIR}/{file_name}").view_matrix
+            images = CardioCascadeNet.ReadImages(f"{self.ORIGS_DIR}/{file_name}").view_matrix
+            masks = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{file_name}").view_matrix
 
             sub_name = file_name.replace('.nii', '')
 
@@ -141,7 +138,7 @@ class GetData(MetaParameters):
             if self.unet_type == 'cropp' or self.unet_type == 'close_cropp':
                 try:
                     images, masks, templates, def_coord = \
-                    CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+                    CardioCascadeNet.CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
                 except:
                     print(f'Data INFER Preprocessing Problem with {sub_name}')
 
@@ -152,23 +149,24 @@ class GetData(MetaParameters):
 
                 try:
                     image, mask, template = \
-                    PreprocessData(image, mask, template, unet_type = None, mask_type = self.mask_type).preprocessing
+                    CardioCascadeNet.PreprocessData(image, mask, template, unet_type = None, mask_type = self.mask_type).preprocessing
                 except:
                     print(f'Data Preprocessing Problem with {sub_name}')
                 
-                try:
-                    image, mask, template = \
-                    Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
-                    # image, mask, template = \
-                    # Augmentation(image, mask, template, unet_type = self.unet_type).gauss_noise
-                    # image, mask, template = \
-                    # Augmentation(image, mask, template, unet_type = self.unet_type).rician_noise
-                except:
-                    print(f'Data Augmentation Problem with {sub_name}')
+                ##TODO: bug?? with rotation template while UNET5 training???
+                # try:
+                #     image, mask, template = \
+                #     Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d     #bug?? with rotation template while UNET5 training???
+                #     # image, mask, template = \
+                #     # Augmentation(image, mask, template, unet_type = self.unet_type).gauss_noise
+                #     # image, mask, template = \
+                #     # Augmentation(image, mask, template, unet_type = self.unet_type).rician_noise
+                # except:
+                #     print(f'Data Augmentation Problem with {sub_name}')
 
                 try:
                     image, mask, template = \
-                    MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
+                    CardioCascadeNet.MaskPreprocessing(image, mask, template, mask_type = self.mask_type).mask_preprocessing
                 except:
                     print(f'Data MaskPreprocessing Problem with {sub_name}')
 
@@ -220,7 +218,7 @@ class GetData(MetaParameters):
         #         except:
         #             pass 
 
-        for case in range(2):
+        for case in range(1):
             with Pool(processes=4) as pool:
                 try:
                     for patch in pool.imap_unordered(self.pool_worker, self.files):
@@ -249,7 +247,7 @@ class GetData(MetaParameters):
 
         try:
             list_images, list_masks, list_templates, list_names = \
-            PreprocessData(list_images, list_masks, list_templates, list_names).shuff_dataset
+            CardioCascadeNet.PreprocessData(list_images, list_masks, list_templates, list_names).shuff_dataset
         except:
             print('Shuffle was broken')
             pass
@@ -257,17 +255,17 @@ class GetData(MetaParameters):
         return list_images, list_masks, list_templates, list_names
 
 
-class MyDataset(Dataset, MetaParameters):
+class MyDataset(Dataset, CardioCascadeNet.MetaParameters):
     def __init__(self, ds_images, ds_masks, ds_templates, ds_names, transform = None, images_and_labels = []):
         super().__init__()
 
+        self.kernel_size = CardioCascadeNet.ChooseKernelSize().kernel_size(unet_type = None)
         self.transform = transform
         self.images_and_labels = images_and_labels
         self.images = ds_images
         self.masks = ds_masks
         self.templates = ds_templates
         self.names = ds_names
-        self.kernel_size = chklsz.kernel_size(unet_type = None)
 
         for i in range(len(self.images)):
             self.images_and_labels.append((i, i, i, i))

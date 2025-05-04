@@ -1,32 +1,35 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.3
-Date: 03-09-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
 
-from Preprocessing.preprocessing import *
-from configuration import meta
+import os
+import json
+import random
+
 from pprint import pprint
 
-import json, os
+
+import CardioCascadeNet
 
 
 #########################################################################################################################
 # Create subject list and after shuffling it, split to train, valid and test sets
 #########################################################################################################################
-class JsonFoldList(MetaParameters):
+class JsonFoldList(CardioCascadeNet.MetaParameters):
     def __init__(self):
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
         self.json_file_path = f'{self.DATASET_DIR}{self.DATASET_NAME}_folds_list.json'
         self.folds_dict = self.choose_folds_list
 
     @property
     def dataset_list(self):
-        dataset_list = ReadImages(f'{self.ORIGS_DIR}').get_dataset_list()
+        dataset_list = CardioCascadeNet.ReadImages(f'{self.ORIGS_DIR}').get_dataset_list()
 
         try:
             dataset_list.remove('.DS_Store')
@@ -47,6 +50,9 @@ class JsonFoldList(MetaParameters):
         dataset_size = len(self.dataset_list)
         test_list = self.dataset_list[round(0.8 * dataset_size):]
         train_list  = list(set(self.dataset_list) - set(test_list))
+
+        # test_list = ['SubHCM002.nii', 'SubHCM003.nii', 'SubHCM005.nii', 'SubHCM013.nii', 'SubHCM024.nii', 'SubHCM026.nii', 'SubHCM035.nii', 'SubHCM036.nii', 'SubHCM042.nii', 'SubHCM053.nii', 'SubHCM059.nii', 'SubHCM061.nii', 'SubHCM066.nii', 'SubHCM068.nii', 'SubHCM070.nii', 'SubHCM076.nii', 'SubHCM080.nii', 'SubHCM084.nii', 'SubHCM093.nii', 'SubHCM095.nii']
+        # train_list  = list(set(self.dataset_list) - set(test_list))
 
         train_dataset_size = len(train_list)
 
@@ -111,7 +117,7 @@ class JsonFoldList(MetaParameters):
 
 
 if __name__ == '__main__':
-    jsnlst = JsonFoldList()
+    jsnlst = CardioCascadeNet.JsonFoldList()
     jsnlst.create_folds_list
     test_list = jsnlst.load_dataset_list('test_list')
 

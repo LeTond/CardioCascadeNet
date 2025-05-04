@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.1
-Date: 03-09-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -11,17 +11,20 @@ GitHub: https://github.com/LeTond
 import pydicom as dicom
 
 
+import CardioCascadeNet
 
-class DicomSaver(MetaParameters):
+
+
+class DicomSaver(CardioCascadeNet.MetaParameters):
     def __init__(self, masks_list, file_name, evaluate_directory):         
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
 
+        self.fdrw = CardioCascadeNet.FileDirectoryWorker()
         self.masks_list = masks_list
         self.file_name = file_name
         self.evaluate_directory = evaluate_directory
         self.orig_dir = f'{self.DATASET_DIR}{self.DATASET_NAME}_origin_new/'
         # self.orig_dir = f''
-
 
     def old_dicom(self):
         old_dicom = dicom.dcmread(self.orig_dir + self.file_name)
@@ -75,7 +78,7 @@ class DicomSaver(MetaParameters):
 
         new_file_name = f'{self.evaluate_directory}{self.file_name}'.split('/')[-1]
         new_dir_name = f'{self.evaluate_directory}{self.file_name}'.rstrip(new_file_name)
-        create_dir(new_dir_name)
+        self.fdrw.create_dir(new_dir_name)
 
         old_dicom.save_as(f'{self.evaluate_directory}{self.file_name}')
 
@@ -86,7 +89,7 @@ class DicomSaver(MetaParameters):
         old_dicom.PixelData = self.new_dicom_array().tostring()
 
         new_dir_name = old_dicom.PatientName
-        create_dir(f'{self.evaluate_directory}/{new_dir_name}')
+        self.fdrw.create_dir(f'{self.evaluate_directory}/{new_dir_name}')
 
         print(f'{self.evaluate_directory}/{new_dir_name}/')
         # old_dicom.save_as(f'{self.evaluate_directory}/{new_dir_name}/{self.file_name}')

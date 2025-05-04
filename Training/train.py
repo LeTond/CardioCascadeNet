@@ -1,28 +1,30 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.3
-Date: 13-12-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
 
-from configuration import *
-from Validation.validation import DiceLoss
-from tqdm.notebook import tqdm
+import time
+import torch
 
 
-ds = DiceLoss()
+import CardioCascadeNet
 
 
-class TrainNetwork(MetaParameters):
-    def __init__(self, model, optimizer, loss_function, scheduler_gen, train_loader, valid_loader, meta, ds):         
-        super(MetaParameters, self).__init__()
-        self.ds = ds 
+
+class TrainNetwork(CardioCascadeNet.MetaParameters):
+    def __init__(self, model, optimizer, loss_function, scheduler_gen, train_loader, valid_loader):         
+        super(CardioCascadeNet.MetaParameters, self).__init__()
+        self.ds = CardioCascadeNet.DiceLoss()
+        self.loss_function = loss_function
+        self.fdwr = CardioCascadeNet.FileDirectoryWorker()
+        self.device = CardioCascadeNet.device
         self.model = model
         self.optimizer = optimizer
-        self.loss_function = loss_function
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.scheduler_gen = scheduler_gen
@@ -67,7 +69,7 @@ class TrainNetwork(MetaParameters):
         with torch.no_grad():
             
             for inputs, labels, sub_names in loader_:
-                inputs, labels, sub_names = inputs.to(device), labels.to(device), list(sub_names)   
+                inputs, labels, sub_names = inputs.to(self.device), labels.to(self.device), list(sub_names)   
 
                 predict = self.model(inputs)
                 loss += self.loss_function(predict, labels)
@@ -99,10 +101,10 @@ class TrainNetwork(MetaParameters):
             self.model.train()
             
             for inputs, labels, sub_names in self.train_loader:
-                inputs, labels, sub_names = inputs.to(device), labels.to(device), list(sub_names)   
+                inputs, labels, sub_names = inputs.to(self.device), labels.to(self.device), list(sub_names)   
           
                 predict = self.model(inputs)
-                train_loss = loss_function(predict, labels)
+                train_loss = self.loss_function(predict, labels)
 
                 # predict = torch.softmax(predict, dim = 1)
                 predict = torch.argmax(predict, dim = 1)
@@ -141,7 +143,7 @@ class TrainNetwork(MetaParameters):
             for key in range(1, self.NUM_CLASS):
                 results += f' Dice_{self.DICT_CLASS[key]} = ' + str(round(validating[1].get(f'Dice_{self.DICT_CLASS[key]}'), 3))
             
-            fdwr.log_stats(project_name = self.PROJ_NAME, results = results)
+            self.fdwr.log_stats(project_name = self.PROJ_NAME, results = results)
 
             if validating[0] > the_last_loss:
                 trigger_times += 1

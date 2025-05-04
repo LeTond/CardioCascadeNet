@@ -1,39 +1,40 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.3
-Date: 13-12-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
 
-import sys
-import os
 
+import os
+import sys
+import cv2
+import time
 import torch
 import random 
-import time
-import cv2
-import matplotlib
 import pickle
 import platform
+import matplotlib
 
-import nibabel as nib
-import pydicom as dicom
 import numpy as np
 import pandas as pd
-import torchvision.transforms.functional as TF
-import torchvision.transforms as transforms
+import nibabel as nib
+import pydicom as dicom
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
+import torchvision.transforms.functional as TF
 
 from torch import nn
+from scipy import ndimage
 from skimage.transform import resize, rescale, downscale_local_mean
 from scipy.ndimage import rotate as rotate_image
 from torch.utils.data import DataLoader
 from sklearn import preprocessing        #pip install scikit-learn
-from scipy import ndimage
-from configuration import *
+
+
+import CardioCascadeNet
 
 
 class ReadImages():
@@ -98,16 +99,17 @@ class ReadImages():
         return list(self.get_file_list)
 
 
-class PreprocessData(MetaParameters):
+class PreprocessData(CardioCascadeNet.MetaParameters):
     def __init__(self, image, mask = None, template = None, names = None, unet_type = None, mask_type = None):
         super().__init__()
+
+        self.kernel_size = CardioCascadeNet.ChooseKernelSize().kernel_size(unet_type)
         self.__image = image
         self.__mask = mask
         self.__template = template
         self.__names = names
         self.__mask_type = mask_type
         self.__unet_type = unet_type
-        self.kernel_size = chklsz.kernel_size(unet_type)
 
     @property
     def names(self):
@@ -248,9 +250,9 @@ class PreprocessData(MetaParameters):
         return list(images), list(masks), list(templates), list(names)
 
 
-class MaskPreprocessing(MetaParameters):
+class MaskPreprocessing(CardioCascadeNet.MetaParameters):
     def __init__(self, image, mask = None, template = None, mask_type = None):    
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
         self.__image = image
         self.__mask = mask
         self.__template = template
@@ -306,8 +308,8 @@ class MaskPreprocessing(MetaParameters):
         elif self.mask_type == 'infer_bull_level':
             return self.infer_bull_level_preprocessing
 
-        elif self.mask_type == 'myo_level':
-            return self.myo_level_preprocessing
+        elif self.mask_type == 'lv_level':
+            return self.lv_level_preprocessing
         
         elif self.mask_type is None:
             return self.image, self.mask, self.template
@@ -320,7 +322,7 @@ class MaskPreprocessing(MetaParameters):
         return self.choose_mask_preprocessing
 
     @property
-    def myo_level_preprocessing(self):
+    def lv_level_preprocessing(self):
         mask = self.mask.copy()
 
         for basal in range(1, 7):
@@ -370,7 +372,7 @@ class MaskPreprocessing(MetaParameters):
 
     @property
     def infer_bull_level_preprocessing(self):
-        mask = self.mask.copy()                 #Unet4_mask MYO_LEVEL
+        mask = self.mask.copy()                 #Unet4_mask LV_LEVEL
         template = self.template.copy()         #Unet3_mask SCAR
 
         template[template == 1] = 0
@@ -388,14 +390,15 @@ class MaskPreprocessing(MetaParameters):
         return self.image, self.mask, template
 
 
-class Augmentation(MetaParameters):
+class Augmentation(CardioCascadeNet.MetaParameters):
     def __init__(self, image, mask = None, template = None, unet_type = None):
         super().__init__()
+
+        self.kernel_size = CardioCascadeNet.ChooseKernelSize().kernel_size(unet_type)
         self.__image = image
         self.__mask = mask
         self.__template = template
         self.__unet_type = unet_type
-        self.kernel_size = chklsz.kernel_size(unet_type)
 
     @property
     def unet_type(self):
@@ -499,9 +502,9 @@ class Augmentation(MetaParameters):
             return self.image, self.mask, self.template
 
 
-class CroppPreprocessData(MetaParameters):
+class CroppPreprocessData(CardioCascadeNet.MetaParameters):
     def __init__(self, images = None, masks = None, templates = None, unet_type = None):
-        super(MetaParameters, self).__init__()
+        super(CardioCascadeNet.MetaParameters, self).__init__()
         self.__images = images
         self.__masks = masks
         self.__templates = templates

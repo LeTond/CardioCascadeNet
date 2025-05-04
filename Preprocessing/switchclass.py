@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.1
-Date: 03-09-2024
+Version: 1.4
+Date: 04-05-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -29,15 +29,15 @@ def view_matrix(path):
 
 def save_nifti(masks_list, name):
     new_image = nib.Nifti1Image(masks_list, affine = np.eye(4))
-    nib.save(new_image, f'./Dataset/RS/copy_{name}')
+    nib.save(new_image, f'./CardioCascadeNet/Dataset/RS/copy_{name}')
 
 
 
 if __name__ == '__main__':
-    for name in os.listdir('./Dataset/RS/RS_results'):
+    for name in os.listdir('./CardioCascadeNet/Dataset/RS/RS_results'):
         try:
             # bull_templs = view_matrix(f"./Dataset/BULLEYE_mask/{name}")
-            masks = view_matrix(f'./Dataset/RS/RS_results/{name}')
+            masks = view_matrix(f'./CardioCascadeNet/Dataset/RS/RS_results/{name}')
 
             new_masks = []            
 
