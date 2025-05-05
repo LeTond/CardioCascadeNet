@@ -87,26 +87,28 @@ main.py:
 
 Data directories should have a similar structure:
 
-	.
-	├── Dataset
-	|   ├── PROJ_NAME_origin
-	|   |   ├── image_01.nii
-	|   |   └── image_02.nii
-	|   |   ├── image_03.nii
-	|   |   └── image_04.nii
-	|	|
-	|   ├── PROJ_NAME_mask
-	|   |   ├── mask_01.nii
-	|   |   └── mask_02.nii
-	|   |   ├── mask_03.nii
-	|   |   └── mask_04.nii
-	|	|
-	|   ├── PROJ_NAME_origin_new
-	|   |   ├── mask_05.nii
-	|   |   └── mask_06.nii
-	|   |   ├── mask_07.nii
-	|   |   └── mask_08.nii
-
+	├── MainProject
+ 	|   ├── main.py
+	|   ├── CardioCascadeNet
+	|   ├── Dataset
+	|   |   ├── PROJ_NAME_origin
+	|   |   |   ├── image_01.nii
+	|   |   |   └── image_02.nii
+	|   |   |   ├── image_03.nii
+	|   |   |   └── image_04.nii
+	|	|   |
+	|   |   ├── PROJ_NAME_mask
+	|   |   |   ├── mask_01.nii
+	|   |   |   └── mask_02.nii
+	|   |   |   ├── mask_03.nii
+	|   |   |   └── mask_04.nii
+	|	|   |
+	|   |   ├── PROJ_NAME_origin_new
+	|   |   |   ├── mask_05.nii
+	|   |   |   └── mask_06.nii
+	|   |   |   ├── mask_07.nii
+	|   |   |   └── mask_08.nii
+	
 ### Training:
 
 
