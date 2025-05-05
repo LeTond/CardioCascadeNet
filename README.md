@@ -71,8 +71,9 @@ From root project directory run necessary modules:
 	|   ├── CardioCascadeNet
 
 main.py:
-	import CardioCascadeNet
-	
+
+ 	import CardioCascadeNet
+ 
 	if __name__ == "__main__":
 	    CardioCascadeNet.TrainRun().rewrite_weights_run()
 	    CardioCascadeNet.TrainRun().train_run()
