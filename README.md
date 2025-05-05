@@ -65,7 +65,8 @@ masks.
 ## Run modules
 
 From root project directory run necessary modules:
-	.
+	
+ 	.
 	├── MainProject
 	|   ├── main.py
 	|   ├── CardioCascadeNet
