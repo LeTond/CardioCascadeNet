@@ -61,6 +61,26 @@ choose a model configuration.
 masks.
 
 *******************************************************************************
+*******************************************************************************
+## Run modules
+
+From root project directory run necessary modules:
+	.
+	├── MainProject
+	|   ├── main.py
+	|   ├── CardioCascadeNet
+
+main.py:
+	import CardioCascadeNet
+	
+	if __name__ == "__main__":
+	    CardioCascadeNet.TrainRun().rewrite_weights_run()
+	    CardioCascadeNet.TrainRun().train_run()
+	    CardioCascadeNet.InferenceRun().run_process()
+	    CardioCascadeNet.ComparingRun().comparing_run()
+	    CardioCascadeNet.CountRelvolumeRun().count_rel_volume_run()
+	    CardioCascadeNet.ValidationRun().validation_run()
+*******************************************************************************
 ### Directories structure:
 
 Data directories should have a similar structure:
