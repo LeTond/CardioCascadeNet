@@ -61,30 +61,54 @@ choose a model configuration.
 masks.
 
 *******************************************************************************
+*******************************************************************************
+## Run modules
+
+From root project directory run necessary modules:
+	
+ 	.
+	├── MainProject
+	|   ├── main.py
+	|   ├── CardioCascadeNet
+
+main.py:
+
+ 	import CardioCascadeNet
+ 
+	if __name__ == "__main__":
+	    CardioCascadeNet.TrainRun().rewrite_weights_run()
+	    CardioCascadeNet.TrainRun().train_run()
+	    CardioCascadeNet.InferenceRun().run_process()
+	    CardioCascadeNet.ComparingRun().comparing_run()
+	    CardioCascadeNet.CountRelvolumeRun().count_rel_volume_run()
+	    CardioCascadeNet.ValidationRun().validation_run()
+*******************************************************************************
 ### Directories structure:
 
 Data directories should have a similar structure:
 
-	.
-	├── Dataset
-	|   ├── PROJ_NAME_origin
-	|   |   ├── image_01.nii
-	|   |   └── image_02.nii
-	|   |   ├── image_03.nii
-	|   |   └── image_04.nii
-	|	|
-	|   ├── PROJ_NAME_mask
-	|   |   ├── mask_01.nii
-	|   |   └── mask_02.nii
-	|   |   ├── mask_03.nii
-	|   |   └── mask_04.nii
-	|	|
-	|   ├── PROJ_NAME_origin_new
-	|   |   ├── mask_05.nii
-	|   |   └── mask_06.nii
-	|   |   ├── mask_07.nii
-	|   |   └── mask_08.nii
-
+	├── MainProject
+ 	|   ├── main.py
+	|   ├── CardioCascadeNet
+	|   ├── Dataset
+	|   |   ├── PROJ_NAME_origin
+	|   |   |   ├── image_01.nii
+	|   |   |   └── image_02.nii
+	|   |   |   ├── image_03.nii
+	|   |   |   └── image_04.nii
+	|	|   |
+	|   |   ├── PROJ_NAME_mask
+	|   |   |   ├── mask_01.nii
+	|   |   |   └── mask_02.nii
+	|   |   |   ├── mask_03.nii
+	|   |   |   └── mask_04.nii
+	|	|   |
+	|   |   ├── PROJ_NAME_origin_new
+	|   |   |   ├── mask_05.nii
+	|   |   |   └── mask_06.nii
+	|   |   |   ├── mask_07.nii
+	|   |   |   └── mask_08.nii
+	
 ### Training:
 
 
