@@ -35,6 +35,8 @@ class TrainRun(CardioCascadeNet.MetaParameters):
         transform_01 = self.chtfrm.choose_transforms('transform_01')
         transform_02 = self.chtfrm.choose_transforms('transform_02')
         transform_03 = self.chtfrm.choose_transforms('transform_03')
+        transform_05 = self.chtfrm.choose_transforms('transform_05')
+        transform_06 = self.chtfrm.choose_transforms('transform_06')
 
         self.jsnlst.create_folds_list
 

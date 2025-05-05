@@ -20,11 +20,12 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
     def __init__(self, model, optimizer, loss_function, scheduler_gen, train_loader, valid_loader):         
         super(CardioCascadeNet.MetaParameters, self).__init__()
         self.ds = CardioCascadeNet.DiceLoss()
-        self.loss_function = loss_function
         self.fdwr = CardioCascadeNet.FileDirectoryWorker()
         self.device = CardioCascadeNet.device
+
         self.model = model
         self.optimizer = optimizer
+        self.loss_function = loss_function
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.scheduler_gen = scheduler_gen

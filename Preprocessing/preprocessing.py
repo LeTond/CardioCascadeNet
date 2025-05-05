@@ -526,12 +526,21 @@ class CroppPreprocessData(CardioCascadeNet.MetaParameters):
     def unet_type(self):
         return self.__unet_type
 
-    def presegmentation_tissues(self, def_coord, gap_1 = None):
+    @property
+    def cropp_gap(self):
+        if self.MULTYGAP:
+            cropp_gap = int(random.choice([6, 7, 8, 9, 10]))
+        else:
+            cropp_gap = 8
+
+        return cropp_gap
+
+    def presegmentation_tissues(self, def_coord):
         list_top, list_bot, list_left, list_right = [], [], [], []
         list_weight_mass_x, list_weight_mass_y = [], []
 
-        shp = self.images.shape
         count = 0
+        shp = self.images.shape
         gap = self.CROPP_KERNEL // 2
 
         last_top, last_bot, last_left, last_right = \
@@ -576,42 +585,38 @@ class CroppPreprocessData(CardioCascadeNet.MetaParameters):
         else:
             center_row, center_column = def_coord
 
-        if type(gap_1) == list:
-            center_row = center_row + gap_1[0]
-            center_column = center_column + gap_1[1]
-
         if self.unet_type == 'close_cropp':
             for slc in range(shp[2]):
                 image_template = np.zeros((shp[0], shp[1])).copy()
 
                 if list_top[slc] == (shp[0] // 2 - gap) and list_bot[slc] == (shp[1] // 2 - gap) \
                 and list_left[slc] == (shp[0] // 2 + gap) and list_right[slc] == (shp[1] // 2 + gap):
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
-                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                    image_template[center_row - 2 * self.cropp_gap : center_row + 2 * self.cropp_gap, \
+                    center_column - 2 * self.cropp_gap : center_column + 2 * self.cropp_gap] = 1
                 
                 elif list_top[slc] > mean_bot and list_bot[slc] > mean_bot \
                 and list_left[slc] > mean_bot and list_right[slc] > mean_bot:
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
-                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                    image_template[center_row - 2 * self.cropp_gap : center_row + 2 * self.cropp_gap, \
+                    center_column - 2 * self.cropp_gap : center_column + 2 * self.cropp_gap] = 1
                 
                 elif list_top[slc] > mean_right and list_bot[slc] > mean_right \
                 and list_left[slc] > mean_right and list_right[slc] > mean_right:
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
-                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                    image_template[center_row - 2 * self.cropp_gap : center_row + 2 * self.cropp_gap, \
+                    center_column - 2 * self.cropp_gap : center_column + 2 * self.cropp_gap] = 1
                 
                 elif list_top[slc] < mean_top and list_bot[slc] < mean_top \
                 and list_left[slc] < mean_top and list_right[slc] < mean_top:
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
-                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                    image_template[center_row - 2 * self.cropp_gap : center_row + 2 * self.cropp_gap, \
+                    center_column - 2 * self.cropp_gap : center_column + 2 * self.cropp_gap] = 1
                 
                 elif list_top[slc] < mean_left and list_bot[slc] < mean_left \
                 and list_left[slc] < mean_left and list_right[slc] < mean_left:
-                    image_template[center_row - 2 * gap_1 : center_row + 2 * gap_1, \
-                    center_column - 2 * gap_1 : center_column + 2 * gap_1] = 1
+                    image_template[center_row - 2 * self.cropp_gap : center_row + 2 * self.cropp_gap, \
+                    center_column - 2 * self.cropp_gap : center_column + 2 * self.cropp_gap] = 1
                 
                 else:
-                    image_template[list_top[slc] - gap_1 : list_bot[slc] + gap_1, \
-                    list_left[slc] - gap_1 : list_right[slc] + gap_1] = 1
+                    image_template[list_top[slc] - self.cropp_gap : list_bot[slc] + self.cropp_gap, \
+                    list_left[slc] - self.cropp_gap : list_right[slc] + self.cropp_gap] = 1
 
                 self.images[:, :, slc] = self.images[:, :, slc] * image_template
 

@@ -20,7 +20,7 @@ from torch import nn
 from scipy import ndimage
 from matplotlib import pylab as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from skimage.transform import resize, rescale       #pip install scikit-image
+from skimage.transform import resize, rescale           #pip install scikit-image
 from skimage.transform import resize, rescale, downscale_local_mean
 
 import CardioCascadeNet
@@ -35,7 +35,6 @@ class PredictListImages(CardioCascadeNet.MetaParameters):
         self.def_coord = None
         self.__unet_type = unet_type
         self.__mask_type = mask_type
-        self.cropp_gap = 8
     
     @property
     def unet_type(self):
@@ -53,13 +52,12 @@ class PredictListImages(CardioCascadeNet.MetaParameters):
         orig_img_shape = images.shape
 
         if self.mask_type == 'infer_bull_level':
-            # templates = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HCM_adult_mask/{self.file_path.split('/')[-1]}").view_matrix
-            # templates = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/ALMAZ_Unet3_mask_new/{self.file_path.split('/')[-1]}").view_matrix
-            templates = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HCM_adult_Unet3_mask_new/{self.file_path.split('/')[-1]}").view_matrix
+            # templates = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_path.split('/')[-1]}").view_matrix
+            templates = CardioCascadeNet.ReadImages(f"{self.NEW_UNET3_MASK_PATH}{self.file_path.split('/')[-1]}").view_matrix
 
         if masks is not None:
             images, masks, templates, self.def_coord = \
-            CardioCascadeNet.CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+            CardioCascadeNet.CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None)
         else:
             masks = np.zeros((images.shape))
 
@@ -103,7 +101,7 @@ class PredictListImages(CardioCascadeNet.MetaParameters):
 
             for slc in range(num_slc):
                 folder_name = self.old_dicom(self.file_path[slc])
-                templates[:, :, slc] = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/ALMAZ_Unet3_mask_new/{folder_name}/{self.file_path[slc].split('/')[-1]}").get_dcm()[:, :, 0]
+                templates[:, :, slc] = CardioCascadeNet.ReadImages(f"{self.NEW_UNET3_MASK_PATH}{folder_name}/{self.file_path[slc].split('/')[-1]}").get_dcm()[:, :, 0]
 
         if masks is not None:
             images, masks, templates, self.def_coord = \
@@ -608,10 +606,7 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
         self.masks_list = CardioCascadeNet.ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
         self.orig_masks_list = CardioCascadeNet.ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
         # self.orig_masks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
-        # self.orig_masks_list = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/BULLEYE_mask/{self.file_name}").view_matrix
-        self.fib_masks_list = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HCM_adult_Unet3_mask_new/{self.file_name}").view_matrix
-        # self.fib_masks_list = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HCM_adult_Unet2_mask_new/{self.file_name}").view_matrix
-        # self.fib_masks_list = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/ALMAZ_Unet3_mask_new/{self.file_name}").view_matrix
+        self.fib_masks_list = CardioCascadeNet.ReadImages(f"{self.NEW_UNET3_MASK_PATH}{self.file_name}").view_matrix
         # self.fib_masks_list = CardioCascadeNet.ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
         # self.fib_masks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
         

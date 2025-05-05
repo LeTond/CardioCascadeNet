@@ -8,6 +8,7 @@ GitHub: https://github.com/LeTond
 """
 
 import torch
+import random
 import numpy as np
 import torchvision.transforms.functional as TF
 
@@ -86,15 +87,6 @@ class GetData(CardioCascadeNet.MetaParameters):
 
         return diction
 
-    @property
-    def cropp_gap(self):
-        if self.MULTYGAP:
-            cropp_gap = random.choice([6, 7, 8, 9, 10])
-        else:
-            cropp_gap = 8
-
-        return cropp_gap
-
     def check_mask(self, mask, sub_name, slc):
         if self.EMPTY is False and mask[mask > 0].sum().item() == 0:
             print(f"Subject {sub_name} slice {slc} was passed because EMPY is FALSE")
@@ -138,7 +130,7 @@ class GetData(CardioCascadeNet.MetaParameters):
             if self.unet_type == 'cropp' or self.unet_type == 'close_cropp':
                 try:
                     images, masks, templates, def_coord = \
-                    CardioCascadeNet.CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None, self.cropp_gap)
+                    CardioCascadeNet.CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None)
                 except:
                     print(f'Data INFER Preprocessing Problem with {sub_name}')
 
@@ -193,18 +185,18 @@ class GetData(CardioCascadeNet.MetaParameters):
     def generated_data_list(self):
         list_images, list_masks, list_templates, list_names = [], [], [], []
 
-        # print(self.count_pathology(self.files))
+        print(self.count_pathology(self.files))
 
-        # for subject in self.files:
-        #     try:
-        #         images, masks, templates, sub_names = self.pool_worker(subject)
-        #         for slc in range(len(images)): 
-        #             list_images.append(images[slc])
-        #             list_masks.append(masks[slc])
-        #             list_templates.append(templates[slc])
-        #             list_names.append(sub_names[slc])
-        #     except:
-        #         pass 
+        for subject in self.files:
+            try:
+                images, masks, templates, sub_names = self.pool_worker(subject)
+                for slc in range(len(images)): 
+                    list_images.append(images[slc])
+                    list_masks.append(masks[slc])
+                    list_templates.append(templates[slc])
+                    list_names.append(sub_names[slc])
+            except:
+                pass 
 
         # if self.AUGMENTATION and self.augmentation:
         #     for subject in self.files:
@@ -218,20 +210,20 @@ class GetData(CardioCascadeNet.MetaParameters):
         #         except:
         #             pass 
 
-        for case in range(1):
-            with Pool(processes=4) as pool:
-                try:
-                    for patch in pool.imap_unordered(self.pool_worker, self.files):
-                        size_img = len(patch[0])
+        # for case in range(1):
+        #     with Pool(processes=4) as pool:
+        #         try:
+        #             for patch in pool.imap_unordered(self.pool_worker, self.files):
+        #                 size_img = len(patch[0])
 
-                        for slc in range(size_img):
-                            list_images.append(patch[0][slc])
-                            list_masks.append(patch[1][slc])
-                            list_templates.append(patch[2][slc])
-                            list_names.append(patch[3][slc])
+        #                 for slc in range(size_img):
+        #                     list_images.append(patch[0][slc])
+        #                     list_masks.append(patch[1][slc])
+        #                     list_templates.append(patch[2][slc])
+        #                     list_names.append(patch[3][slc])
             
-                except:
-                    pass 
+        #         except:
+        #             pass 
 
         # for i in range(1):
         #     with Pool(processes=4) as pool:

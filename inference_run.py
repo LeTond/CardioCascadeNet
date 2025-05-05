@@ -39,22 +39,21 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
         self.checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
         # self.checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth', map_location = torch.device('cpu'))
 
-    def get_origin_images(self, file_name, masks_list, unet_type, mask_type, nifti_type, dicom_type):
-        if nifti_type == True:
+    def get_origin_images(self, file_name, masks_list, unet_type, mask_type, file_type):
+        if file_type == 'nifti_type':
             images, templates, image_shp, def_coord = \
             CardioCascadeNet.PredictListImages(file_name, self.dataset_path, unet_type, mask_type).nifti_list(masks_list)
 
-        elif dicom_type == True:            
+        elif file_type == 'dicom_type':            
             images, templates, image_shp, def_coord = \
             CardioCascadeNet.PredictListImages(file_name, self.dataset_path, unet_type, mask_type).dicom_array(masks_list)
 
         return images, templates, image_shp, def_coord
 
     def model_inference(self, **kwargs):
-        file_dir, file_name, masks_list, model_fold, \
-        unet_type, mask_type, nifti_type, dicom_type, pdf_flag = \
+        file_dir, file_name, masks_list, model_fold, unet_type, mask_type, file_type, pdf_flag = \
         kwargs['file_dir'], kwargs['file_name'], kwargs['masks_list'], kwargs['model_fold'], \
-        kwargs['unet_type'], kwargs['mask_type'], kwargs['nifti_type'], kwargs['dicom_type'], kwargs['pdf_flag']
+        kwargs['unet_type'], kwargs['mask_type'], kwargs['file_type'], kwargs['pdf_flag']
 
         self.fdwr.create_dir(project_name = file_dir)
         
@@ -63,7 +62,7 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
         neural_model.load_state_dict(checkpoint['weights'])
 
         images, templates, image_shp, def_coord = self.get_origin_images(
-            file_name, masks_list, unet_type, mask_type, nifti_type, dicom_type)
+            file_name, masks_list, unet_type, mask_type, file_type)
         
         masks_list = CardioCascadeNet.PredictionMask(
             neural_model, images, templates, image_shp, def_coord, unet_type = unet_type).get_predicted_mask
@@ -71,13 +70,13 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
         if mask_type == 'infer_bull_level':
             masks_list = CardioCascadeNet.MaskPostprocessing(file_name = file_name, masks_list = masks_list, mask_type = mask_type).check_bull_apex
 
-        if nifti_type:
+        if file_type == 'nifti_type':
             CardioCascadeNet.NiftiSaver(masks_list, file_name, file_dir).save_nifti
 
             if pdf_flag is True:
                 CardioCascadeNet.PdfSaver(file_name, self.dataset_path, file_dir).save_pdf
 
-        if dicom_type:
+        if file_type == 'dicom_type':
             for slc in range(len(file_name)):
                 if model_fold == self.UNET3_FOLD or model_fold == self.UNET4_FOLD:
                     CardioCascadeNet.DicomSaver(masks_list[:, :, slc], file_name[slc], file_dir).save_dicom_mask()
@@ -110,39 +109,45 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
         ###########################################################################################################
         ##  Nifti file inference (.nii)
         ###########################################################################################################
-        for file_name in dataset_list:
-            if file_name.endswith('.nii'):
-                if self.UNET1 is True:
-                    masks_list_01 = self.model_inference(
-                        file_dir = self.NEW_UNET1_MASK_PATH, file_name = file_name, masks_list = None, 
-                        model_fold = self.UNET1_FOLD, unet_type = 'default', mask_type = None, 
-                        pdf_flag = False, nifti_type = True, dicom_type = False)
+        file_type = 'nifti_type'
+        try:
+            for file_name in dataset_list:
+                if file_name.endswith('.nii'):
+                    if self.UNET1 is True:
+                        masks_list_01 = self.model_inference(
+                            file_dir = self.NEW_UNET1_MASK_PATH, file_name = file_name, masks_list = None, 
+                            model_fold = self.UNET1_FOLD, unet_type = 'default', mask_type = None, 
+                            pdf_flag = False, file_type = file_type)
 
-                if self.UNET2 is True:
-                    masks_list_02 = self.model_inference(
-                        file_dir = self.NEW_UNET2_MASK_PATH, file_name = file_name, masks_list = masks_list_01, 
-                        model_fold = self.UNET2_FOLD, unet_type = 'cropp', mask_type = None, 
-                        pdf_flag = False, nifti_type = True, dicom_type = False)
+                    if self.UNET2 is True:
+                        masks_list_02 = self.model_inference(
+                            file_dir = self.NEW_UNET2_MASK_PATH, file_name = file_name, masks_list = masks_list_01, 
+                            model_fold = self.UNET2_FOLD, unet_type = 'cropp', mask_type = None, 
+                            pdf_flag = False, file_type = file_type)
 
-                if self.UNET3 is True:
-                    masks_list_03 = self.model_inference(
-                        file_dir = self.NEW_UNET3_MASK_PATH, file_name = file_name, masks_list = masks_list_02, 
-                        model_fold = self.UNET3_FOLD, unet_type = 'close_cropp', mask_type = None, 
-                        pdf_flag = False, nifti_type = True, dicom_type = False)
+                    if self.UNET3 is True:
+                        masks_list_03 = self.model_inference(
+                            file_dir = self.NEW_UNET3_MASK_PATH, file_name = file_name, masks_list = masks_list_02, 
+                            model_fold = self.UNET3_FOLD, unet_type = 'close_cropp', mask_type = None, 
+                            pdf_flag = False, file_type = file_type)
 
-                if self.UNET4 is True:
-                    masks_list_04 = self.model_inference(
-                        file_dir = self.NEW_UNET4_MASK_PATH, file_name = file_name, masks_list = masks_list_03, 
-                        model_fold = self.UNET4_FOLD, unet_type = 'cropp', mask_type = 'lv_level', 
-                        pdf_flag = False, nifti_type = True, dicom_type = False)
+                    if self.UNET4 is True:
+                        masks_list_04 = self.model_inference(
+                            file_dir = self.NEW_UNET4_MASK_PATH, file_name = file_name, masks_list = masks_list_03, 
+                            model_fold = self.UNET4_FOLD, unet_type = 'cropp', mask_type = 'lv_level', 
+                            pdf_flag = False, file_type = file_type)
 
-                if self.UNET5 is True:
-                    self.model_inference(
-                        file_dir = self.NEW_UNET5_MASK_PATH, file_name = file_name, masks_list = masks_list_04, 
-                        model_fold = self.UNET5_FOLD, unet_type = 'cropp', mask_type = 'infer_bull_level', 
-                        pdf_flag = True, nifti_type = True, dicom_type = False)
+                    if self.UNET5 is True:
+                        self.model_inference(
+                            file_dir = self.NEW_UNET5_MASK_PATH, file_name = file_name, masks_list = masks_list_04, 
+                            model_fold = self.UNET5_FOLD, unet_type = 'cropp', mask_type = 'infer_bull_level', 
+                            pdf_flag = True, file_type = file_type)
 
-                print(f'New subject {file_name} was saved')
+                    print(f'New subject {file_name} was saved')
+
+        except Exception as e:
+            print(e)
+            pass
 
         ###########################################################################################################
         ##  DICOM file inference (.dcm)
@@ -151,25 +156,16 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
         ##TODO: should add while Patient.name == FixPatient.name: continiue else: def_coord_list = [] coord_x, coord_y = 0, 0
         ##TODO: It should be union into one HxWxN matrix 
         dataset_list = CardioCascadeNet.ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_origin_new/').get_file_path_list()
-
         dict_subnames = {}
 
         for file_name in dataset_list:
             if file_name.endswith('.dcm'):                
                 patient_name = CardioCascadeNet.ReadImages(f'{file_name}').get_dcm_name()
                 dict_subnames = self.dict_subnames(dict_subnames, patient_name, file_name)
-
-        # file_dir = [self.NEW_UNET1_MASK_PATH, self.NEW_UNET2_MASK_PATH, 
-                    # self.NEW_UNET3_MASK_PATH, self.NEW_UNET4_MASK_PATH, self.NEW_UNET5_MASK_PATH]
-        # masks_list = [None, ]
-        # model_fold = [self.UNET1_FOLD, self.UNET2_FOLD, self.UNET3_FOLD, self.UNET4_FOLD, self.UNET5_FOLD] 
-        # unet_type = ['default', 'cropp', 'close_cropp', 'cropp', 'cropp']
-        # mask_type = [None, None, None, 'lv_level', 'infer_bull_level']
-        # pdf_flag = [False, False, False, False, False]
-        # nifti_type = [False, False, False, False, False]
-        # dicom_type = [True, True, True, True, True]
         
         print(dict_subnames.keys())
+
+        file_type = 'dicom_type'
 
         try: 
             for key_name in dict_subnames.keys():
@@ -177,31 +173,31 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
                     masks_list_01 = self.model_inference(
                         file_dir = self.NEW_UNET1_MASK_PATH, file_name = dict_subnames[key_name], masks_list = None, 
                         model_fold = self.UNET1_FOLD, unet_type = 'default', mask_type = None, 
-                        pdf_flag = False, nifti_type = False, dicom_type = True)
+                        pdf_flag = False, file_type = file_type)
 
                 if self.UNET2 is True:
                     masks_list_02 = self.model_inference(
                         file_dir = self.NEW_UNET2_MASK_PATH, file_name = dict_subnames[key_name], masks_list = masks_list_01, 
                         model_fold = self.UNET2_FOLD, unet_type = 'cropp', mask_type = None, 
-                        pdf_flag = False, nifti_type = False, dicom_type = True)
+                        pdf_flag = False, file_type = file_type)
 
                 if self.UNET3 is True:
                     masks_list_03 = self.model_inference(
                         file_dir = self.NEW_UNET3_MASK_PATH, file_name = dict_subnames[key_name], masks_list = masks_list_02, 
                         model_fold = self.UNET3_FOLD, unet_type = 'close_cropp', mask_type = None, 
-                        pdf_flag = False, nifti_type = False, dicom_type = True)
+                        pdf_flag = False, file_type = file_type)
 
                 if self.UNET4 is True:
                     masks_list_04 = self.model_inference(
                         file_dir = self.NEW_UNET4_MASK_PATH, file_name = dict_subnames[key_name], masks_list = masks_list_03, 
                         model_fold = self.UNET4_FOLD, unet_type = 'cropp', mask_type = 'lv_level', 
-                        pdf_flag = False, nifti_type = False, dicom_type = True)
+                        pdf_flag = False, file_type = file_type)
 
                 if self.UNET5 is True:
                     self.model_inference(
                         file_dir = self.NEW_UNET5_MASK_PATH, file_name = dict_subnames[key_name], masks_list = masks_list_04, 
                         model_fold = self.UNET5_FOLD, unet_type = 'cropp', mask_type = 'infer_bull_level', 
-                        pdf_flag = False, nifti_type = False, dicom_type = True)
+                        pdf_flag = False, file_type = file_type)
                     
                 print(f'New subject {file_name} was saved')
 

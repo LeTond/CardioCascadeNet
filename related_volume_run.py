@@ -215,6 +215,8 @@ class CountRelvolumeRun():
         super().__init__()
 
     def count_rel_volume_run(self):
+        _root_directory_path = os.path.abspath(os.path.dirname('..'))
+
         # dataset_list = ['Sub01.nii', 'Sub02.nii', 'Sub03.nii', 'Sub04.nii', 'Sub05.nii', 'Sub06.nii', 'Sub07.nii', 'Sub08.nii', 'Sub10.nii', 'Sub11.nii', 'Sub12.nii', 'Sub14.nii', 'Sub15.nii', 'Sub16.nii', 'Sub17.nii', 'Sub18.nii', 'Sub19.nii', 'Sub20.nii', 'Sub21.nii', 'Sub22.nii', 'Sub23.nii', 'Sub24.nii', 'Sub25.nii', 'Sub26.nii', 'Sub27.nii', 'Sub28.nii', 'Sub29.nii', 'Sub30.nii', 'Sub31.nii', 'Sub32.nii', 'Sub33.nii', 'Sub34.nii', 'Sub35.nii', 'Sub36.nii', 'Sub37.nii', 'Sub38.nii', 'Sub40.nii', 'Sub42.nii', 'Sub44.nii', 'Sub45.nii', 'Sub46.nii', 'Sub47.nii', 'Sub48.nii', 'Sub49.nii', 'Sub50.nii', 'Sub51.nii', 'Sub53.nii', 'Sub54.nii', 'Sub55.nii', 'Sub56.nii', 'Sub57.nii', 'Sub58.nii', 'Sub59.nii', 'Sub60.nii', 'Sub61.nii', 'Sub62.nii', 'Sub63.nii', 'Sub66.nii', 'Sub67.nii', 'Sub68.nii', 'Sub69.nii', 'Sub70.nii', 'Sub71.nii', 'Sub72.nii', 'Sub73.nii', 'Sub74.nii', 'Sub75.nii', 'Sub76.nii', 'Sub77.nii', 'Sub78.nii', 'Sub79.nii', 'Sub80.nii', 'Sub81.nii', 'Sub82.nii', 'Sub83.nii', 'Sub84.nii', 'Sub85.nii', 'Sub87.nii', 'Sub88.nii', 'Sub89.nii', 'Sub90.nii', 'Sub91.nii', 'Sub92.nii', 'Sub93.nii', 'Sub94.nii', 'Sub95.nii', 'Sub98.nii', 'Sub99.nii', 'Sub100.nii', 'Sub103.nii', 'Sub105.nii', 'Sub106.nii', 'Sub107.nii', 'Sub108.nii', 'Sub109.nii', 'Sub110.nii', 'Sub111.nii', 'Sub112.nii', 'Sub113.nii']
         # dataset_list = ['Sub200.nii', 'Sub201.nii', 'Sub202.nii', 'Sub203.nii', 'Sub204.nii', 'Sub205.nii', 'Sub206.nii', 'Sub208.nii', 'Sub209.nii', 'Sub210.nii', 'Sub211.nii', 'Sub214.nii', 'Sub215.nii', 'Sub217.nii', 'Sub223.nii', 'Sub225.nii', 'Sub226.nii', 'Sub227.nii', 'Sub228.nii', 'Sub230.nii', 'Sub231.nii', 'Sub232.nii', 'Sub234.nii', 'Sub235.nii', 'Sub236.nii', 'Sub238.nii', 'Sub239.nii', 'Sub240.nii', 'Sub241.nii', 'Sub242.nii', 'Sub244.nii', 'Sub245.nii', 'Sub246.nii', 'Sub247.nii', 'Sub248.nii', 'Sub249.nii', 'Sub250.nii', 'Sub251.nii', 'Sub252.nii', 'Sub253.nii', 'Sub254.nii', 'Sub255.nii', 'Sub256.nii', 'Sub257.nii', 'Sub258.nii', 'Sub259.nii', 'Sub260.nii', 'Sub262.nii', 'Sub263.nii', 'Sub264.nii']
         # dataset_list = ['Sub35.nii', 'Sub07.nii', 'Sub112.nii', 'Sub99.nii', 'Sub76.nii', 'Sub56.nii', 'Sub111.nii', 'Sub85.nii', 'Sub66.nii', 'Sub32.nii', 'Sub53.nii', 'Sub83.nii', 'Sub61.nii', 'Sub49.nii', 'Sub42.nii', 'Sub14.nii', 'Sub69.nii', 'Sub105.nii', 'Sub03.nii', 'Sub23.nii']
@@ -233,8 +235,8 @@ class CountRelvolumeRun():
             # path_to_label = f'./Dataset/ALMAZ_mask/{lst}'
             # path_to_prediction = f'./Dataset/BULLEYE_mask/{lst}'
 
-            path_to_label = f'./CardioCascadeNet/Dataset/HCM_adult_mask/{lst}'
-            path_to_prediction = f'./CardioCascadeNet/Dataset/HCM_adult_mask_bullmasks/{lst}'
+            path_to_label = f"{_root_directory_path}/Dataset/HCM_adult_mask/{lst}"
+            path_to_prediction = f"{_root_directory_path}/Dataset/HCM_adult_mask_bullmasks/{lst}"
 
             cm = CountRelVolume(path_to_label, path_to_prediction)
             cm.print()
