@@ -81,7 +81,7 @@ class MaskPostprocessing(CardioCascadeNet.MetaParameters):
     @property
     def check_bull_apex(self):
         masks_list = self.masks_list.copy()
-        template = CardioCascadeNet.ReadImages(f"{self.NEW_UNET3_MASK_PATH}{str(self.file_name).split('/')[-1]}").view_matrix
+        template = CardioCascadeNet.ReadImages(f"{self.NEW_UNET3_MASKS_PATH}{str(self.file_name).split('/')[-1]}").view_matrix
 
         shp = list(masks_list.shape)
 

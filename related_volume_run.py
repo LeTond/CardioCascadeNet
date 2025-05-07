@@ -235,8 +235,8 @@ class CountRelvolumeRun():
             # path_to_label = f'./Dataset/ALMAZ_mask/{lst}'
             # path_to_prediction = f'./Dataset/BULLEYE_mask/{lst}'
 
-            path_to_label = f"{_root_directory_path}/Dataset/HCM_adult_mask/{lst}"
-            path_to_prediction = f"{_root_directory_path}/Dataset/HCM_adult_mask_bullmasks/{lst}"
+            path_to_label = f"{_root_directory_path}/Dataset/HCM_adult_masks/{lst}"
+            path_to_prediction = f"{_root_directory_path}/Dataset/HCM_adult_masks_bullmasks/{lst}"
 
             cm = CountRelVolume(path_to_label, path_to_prediction)
             cm.print()

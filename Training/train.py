@@ -35,16 +35,12 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
     def choose_model_key(self):
         if self.UNET5 is True:
             return self.UNET5_FOLD
-
         elif self.UNET4 is True and self.UNET5 is False:
-            return self.UNET4_FOLD
-        
+            return self.UNET4_FOLD    
         elif self.UNET3 is True and self.UNET4 is False:
             return self.UNET3_FOLD
-        
         elif self.UNET2 is True and self.UNET3 is False:
             return self.UNET2_FOLD
-        
         elif self.UNET1 is True and self.UNET2 is False:
             return self.UNET1_FOLD
 
@@ -75,7 +71,6 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
                 predict = self.model(inputs)
                 loss += self.loss_function(predict, labels)
 
-                # predict = torch.softmax(predict, dim = 1)
                 predict = torch.argmax(predict, dim = 1)
                 labels = torch.argmax(labels, dim = 1)
                 
@@ -107,7 +102,6 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
                 predict = self.model(inputs)
                 train_loss = self.loss_function(predict, labels)
 
-                # predict = torch.softmax(predict, dim = 1)
                 predict = torch.argmax(predict, dim = 1)
                 labels = torch.argmax(labels, dim = 1)
                 

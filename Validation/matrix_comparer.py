@@ -24,14 +24,14 @@ if two images is equal: pass
 def images_list():
 	all_images_list = []
 
-	file_list = sorted(os.listdir('./CardioCascadeNet/Dataset/HEAD_origin/'))
+	file_list = sorted(os.listdir('./CardioCascadeNet/Dataset/HEAD_images/'))
 
 	for file_name in file_list:
 	# for file_name in ['Sub099.nii', 'Sub099.nii']:
 		if file_name == '.DS_Store':
 			file_list.remove(file_name)
 		else:
-			image = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HEAD_origin/{file_name}").view_matrix
+			image = CardioCascadeNet.ReadImages(f"./CardioCascadeNet/Dataset/HEAD_images/{file_name}").view_matrix
 			all_images_list.append(np.sum(image))
 
 	return all_images_list, file_list

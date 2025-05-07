@@ -18,15 +18,15 @@ import matplotlib.pyplot as plt
 
 
 def get_dcm_name(path_to_file):
-    origin_dicom = dicom.dcmread(path_to_file)
-    dicom_sub_name = origin_dicom[0x0010, 0x0010].value
+    images_dicom = dicom.dcmread(path_to_file)
+    dicom_sub_name = images_dicom[0x0010, 0x0010].value
 
     return dicom_sub_name
 
 
 def get_dcm(path_to_file):
-    origin_dicom = dicom.dcmread(path_to_file)
-    new_dicom = np.array(origin_dicom.pixel_array)
+    images_dicom = dicom.dcmread(path_to_file)
+    new_dicom = np.array(images_dicom.pixel_array)
     
     if len(list(new_dicom.shape)) == 2:
         new_dicom = new_dicom[:, :, np.newaxis]

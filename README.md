@@ -91,19 +91,19 @@ Data directories should have a similar structure:
  	|   ├── main.py
 	|   ├── CardioCascadeNet
 	|   ├── Dataset
-	|   |   ├── PROJ_NAME_origin
+	|   |   ├── PROJ_NAME_images
 	|   |   |   ├── image_01.nii
 	|   |   |   └── image_02.nii
 	|   |   |   ├── image_03.nii
 	|   |   |   └── image_04.nii
 	|	|   |
-	|   |   ├── PROJ_NAME_mask
+	|   |   ├── PROJ_NAME_masks
 	|   |   |   ├── mask_01.nii
 	|   |   |   └── mask_02.nii
 	|   |   |   ├── mask_03.nii
 	|   |   |   └── mask_04.nii
 	|	|   |
-	|   |   ├── PROJ_NAME_origin_new
+	|   |   ├── PROJ_NAME_images_new
 	|   |   |   ├── mask_05.nii
 	|   |   |   └── mask_06.nii
 	|   |   |   ├── mask_07.nii

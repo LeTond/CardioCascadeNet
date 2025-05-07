@@ -50,7 +50,7 @@ class GetData(CardioCascadeNet.MetaParameters):
         elif self.BGLVCROPP is True:
             return 'bglvcropp'
         elif self.UNET4 is True and self.UNET5 is False:
-            return 'myo_level'
+            return 'lv_level'
         elif self.UNET5 is True:
             return 'train_bull_level'
         else:
@@ -117,7 +117,7 @@ class GetData(CardioCascadeNet.MetaParameters):
         list_images, list_masks, list_templates, list_names = [], [], [], []
 
         if file_name.endswith('.nii'):
-            images = CardioCascadeNet.ReadImages(f"{self.ORIGS_DIR}/{file_name}").view_matrix
+            images = CardioCascadeNet.ReadImages(f"{self.IMAGES_DIR}/{file_name}").view_matrix
             masks = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{file_name}").view_matrix
 
             sub_name = file_name.replace('.nii', '')

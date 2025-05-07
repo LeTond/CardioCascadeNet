@@ -23,11 +23,11 @@ class DicomSaver(CardioCascadeNet.MetaParameters):
         self.masks_list = masks_list
         self.file_name = file_name
         self.evaluate_directory = evaluate_directory
-        self.orig_dir = f'{self.DATASET_DIR}{self.DATASET_NAME}_origin_new/'
-        # self.orig_dir = f''
+        self.images_dir = f'{self.DATASET_DIR}{self.DATASET_NAME}_images_new/'
+        # self.images_dir = f''
 
     def old_dicom(self):
-        old_dicom = dicom.dcmread(self.orig_dir + self.file_name)
+        old_dicom = dicom.dcmread(self.images_dir + self.file_name)
         return old_dicom
 
     def change_name(self, old_dicom):

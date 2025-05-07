@@ -126,7 +126,7 @@ class TissueMetrics(MaskPrediction):
         self.smooth = 1e-5
 
     @staticmethod
-    def get_orig_slice(sub_name):
+    def get_images_slice(sub_name):
         sub_name_list = sub_name.split(' ')
         
         return sub_name_list
@@ -135,10 +135,10 @@ class TissueMetrics(MaskPrediction):
         masks_matrix = np.copy(self.masks_matrix)
         masks_matrix[masks_matrix != num_label] = 0
         masks_matrix[masks_matrix == num_label] = 1
-        orig_matrix = np.copy(self.images_matrix) * masks_matrix
+        images_matrix = np.copy(self.images_matrix) * masks_matrix
         summ_mask_matrix = masks_matrix.sum()
-        summ_orig_matrix = orig_matrix.sum()
-        mean_contrast = round(float((summ_orig_matrix + self.smooth) / (summ_mask_matrix + self.smooth)), 2)   #7
+        summ_images_matrix = images_matrix.sum()
+        mean_contrast = round(float((summ_images_matrix + self.smooth) / (summ_mask_matrix + self.smooth)), 2)   #7
 
         return mean_contrast
 
@@ -176,11 +176,11 @@ class TissueMetrics(MaskPrediction):
 
     def image_contrast(self):
         for i in range(self.shp[0]):
-            orig_slc = int(self.get_orig_slice(self.sub_names[i])[2]) 
-            orig_sub = str(self.get_orig_slice(self.sub_names[i])[0])
+            images_slc = int(self.get_images_slice(self.sub_names[i])[2]) 
+            images_sub = str(self.get_images_slice(self.sub_names[i])[0])
             
-            self.images_matrix = ReadImages(f"{self.ORIGS_DIR}/{orig_sub}.nii").view_matrix()[:,:,-orig_slc] 
-            self.masks_matrix = ReadImages(f"{self.MASKS_DIR}/{orig_sub}.nii").view_matrix()[:,:,-orig_slc] 
+            self.images_matrix = ReadImages(f"{self.IMAGES_DIR}/{images_sub}.nii").view_matrix()[:,:,-images_slc] 
+            self.masks_matrix = ReadImages(f"{self.MASKS_DIR}/{images_sub}.nii").view_matrix()[:,:,-images_slc] 
 
             mean_contrast_lv = self.get_image_contrast(num_label = 1)
             mean_contrast_myo = self.get_image_contrast(num_label = 2)

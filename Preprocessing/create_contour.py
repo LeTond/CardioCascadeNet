@@ -21,7 +21,7 @@ class NiftiSaver():
         self.file_name = file_name
 
     def save_new_mask(self):
-        old_mask = CardioCascadeNet.ReadImages(f'./CardioCascadeNet/Dataset/ALMAZ_mask/{self.file_name}').view_matrix()
+        old_mask = CardioCascadeNet.ReadImages(f'./CardioCascadeNet/Dataset/ALMAZ_masks/{self.file_name}').view_matrix()
 
         old_mask[old_mask==0] = 20
         old_mask[old_mask==1] = 20
@@ -49,7 +49,7 @@ class BullEyeContour:
 
 
 if __name__ == "__main__":
-    beye = BullEyeContour('./CardioCascadeNet/Dataset/ALMAZ_mask/')
+    beye = BullEyeContour('./CardioCascadeNet/Dataset/ALMAZ_masks/')
     beye.save_new_mask()
 
 

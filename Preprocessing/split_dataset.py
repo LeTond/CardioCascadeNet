@@ -29,7 +29,7 @@ class JsonFoldList(CardioCascadeNet.MetaParameters):
 
     @property
     def dataset_list(self):
-        dataset_list = CardioCascadeNet.ReadImages(f'{self.ORIGS_DIR}').get_dataset_list()
+        dataset_list = CardioCascadeNet.ReadImages(f'{self.IMAGES_DIR}').get_dataset_list()
 
         try:
             dataset_list.remove('.DS_Store')

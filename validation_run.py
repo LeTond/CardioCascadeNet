@@ -30,8 +30,6 @@ class PlotResults(CardioCascadeNet.MetaParameters):
         self.dict_class_stats = self.create_dict_class()
         self.default_transform = CardioCascadeNet.ChooseTransform().choose_transforms('transform_01')
 
-
-
     def data_loader(self, data_list, kernel_sz, augmentation = False):
         getds_origin, getds_mask, getds_template, getds_names = CardioCascadeNet.GetData(data_list, augmentation).generated_data_list
         data_set = CardioCascadeNet.MyDataset(getds_origin, getds_mask, getds_template, getds_names, self.default_transform)
