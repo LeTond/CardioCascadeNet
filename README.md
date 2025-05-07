@@ -1,4 +1,4 @@
-# CardioCascadeUnet v1.2: 
+# CardioCascadeUnet v1.4: 
 
 CardioCascadeUnet framework is destined for training and inference of the 
 cascade architecture based on U-Net for the tasks of segmentation and 
