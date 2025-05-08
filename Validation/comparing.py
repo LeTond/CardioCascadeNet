@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 
-from medpy import metric
 from scipy.ndimage import _ni_support
 from scipy.spatial.distance import directed_hausdorff
 from scipy.ndimage.morphology import distance_transform_edt, binary_erosion, generate_binary_structure

@@ -58,7 +58,7 @@ class PlotResults(CardioCascadeNet.MetaParameters):
 
         return dict_class_stats
 
-    def bland_altman_per_subject(self, model, test_list, meta, kernel_sz):
+    def bland_altman_per_subject(self, model, test_list, kernel_sz):
         for subj in test_list:
             try:
                 for key in range(1, self.NUM_CLASS): 
@@ -74,7 +74,7 @@ class PlotResults(CardioCascadeNet.MetaParameters):
 
         return self.dict_class_stats
 
-    def stats_per_subject(self, model, test_list, meta, kernel_sz):
+    def stats_per_subject(self, model, test_list, kernel_sz):
         for subj in test_list:
             try:
                 data_loader = self.data_loader([subj], kernel_sz, False)
@@ -103,17 +103,17 @@ class PlotResults(CardioCascadeNet.MetaParameters):
             predMask[0][key-1] = key
             origMask[0][key-1] = key
 
-        colormap = plt.cm.get_cmap('Accent')  # 'plasma' or 'viridis'
+        colormap = plt.cm.get_cmap('viridis')  # 'plasma' or 'viridis'
         colormap.set_under('k', alpha=0.5)
 
         ax[0].imshow(origImage, plt.get_cmap('gray'))
         ax[1].imshow(origImage, plt.get_cmap('gray'))
         ax[1].imshow(origMask, alpha = 0.5, interpolation=None, cmap=colormap,  vmin=0.5)
-        # ax[1].contour(origMask, alpha = 0.5)
+        ax[1].contour(origMask, alpha = 0.5)
 
         ax[2].imshow(origImage, plt.get_cmap('gray'))
         ax[2].imshow(predMask, alpha = 0.5, interpolation=None, cmap=colormap,  vmin=0.5)
-        # ax[2].contour(predMask, alpha = 0.5)
+        ax[2].contour(predMask, alpha = 0.5)
         ax[3].imshow(predMask, alpha = 0.5)
 
         ax[0].set_title(f"{sub_names}", fontsize = 10, fontweight = 'bold')
@@ -138,6 +138,13 @@ class PlotResults(CardioCascadeNet.MetaParameters):
             # if round(predicted_masks[5].get(f'{self.DICT_CLASS[key]}')[i], 3) == 0.0:
             self.prepare_plot(predicted_masks[1][i], predicted_masks[2][i], predicted_masks[3][i], predicted_masks[4][i], dice_layers)
 
+    def create_hist(self, value_list: list):
+        img_np = np.array(value_list)
+        plt.hist(img_np.ravel(), bins=20, density=False)
+        plt.xlabel("DSC")
+        plt.ylabel("Images")
+        plt.title("Distribution of dice")
+
 
 class ValidationRun(CardioCascadeNet.MetaParameters):
     def __init__(self):         
@@ -147,37 +154,63 @@ class ValidationRun(CardioCascadeNet.MetaParameters):
         self.jsnlst = CardioCascadeNet.JsonFoldList()
         self.ds = CardioCascadeNet.DiceLoss()
 
+    def show_dict_class_stats(self, dict_class_stats):
+        for key in range(1, self.NUM_CLASS):
+            print('')
+            print(f'Class_{self.DICT_CLASS[key]}')
+            
+            print(
+                f'DSC: '
+                f'Mean - {round(np.mean(dict_class_stats[f"Dice_{self.DICT_CLASS[key]}"]), 3)} '
+                f'Median - {round(np.median(dict_class_stats[f"Dice_{self.DICT_CLASS[key]}"]), 3)} '
+                )
+            
+            print(
+                f'Precision: '
+                f'Mean - {round(np.mean(dict_class_stats[f"Precision_{self.DICT_CLASS[key]}"]), 3)} '
+                f'Median - {round(np.median(dict_class_stats[f"Precision_{self.DICT_CLASS[key]}"]), 3)} '
+                )
+            
+            print(
+                f'Recall: '
+                f'Mean - {round(np.mean(dict_class_stats[f"Recall_{self.DICT_CLASS[key]}"]), 3)} '
+                f'Median - {round(np.median(dict_class_stats[f"Recall_{self.DICT_CLASS[key]}"]), 3)} '
+                )
+
+        for key in range(1, self.NUM_CLASS):
+            self.pltres.create_hist(dict_class_stats[f"Dice_{self.DICT_CLASS[key]}"])
+
     def validation_run(self):
-        checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
+        checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth', weights_only=False)
 
         if self.UNET2 is False and self.UNET3 is False:
             checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET1_FOLD}']
-            model = checkpoint[f'Model']
-            model.load_state_dict(checkpoint['weights'])
+            neural_model = checkpoint[f'Model']
+            neural_model.load_state_dict(checkpoint['weights'])
             kernel_sz = self.KERNEL
 
         elif self.UNET2 is True and self.UNET3 is False:
             checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET2_FOLD}']
-            model = checkpoint[f'Model']
-            model.load_state_dict(checkpoint['weights'])
+            neural_model = checkpoint[f'Model']
+            neural_model.load_state_dict(checkpoint['weights'])
             kernel_sz = self.CROPP_KERNEL 
 
         elif self.UNET3 is True and self.UNET4 is False:
             checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET3_FOLD}']
-            model = checkpoint[f'Model']
-            model.load_state_dict(checkpoint['weights'])
+            neural_model = checkpoint[f'Model']
+            neural_model.load_state_dict(checkpoint['weights'])
             kernel_sz = self.CROPP_KERNEL 
 
         elif self.UNET4 is True and self.UNET5 is False:
             checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET4_FOLD}']
-            model = checkpoint[f'Model']
-            model.load_state_dict(checkpoint['weights'])
+            neural_model = checkpoint[f'Model']
+            neural_model.load_state_dict(checkpoint['weights'])
             kernel_sz = self.CROPP_KERNEL 
 
         elif self.UNET5 is True:
             checkpoint = checkpoint[f'Net_{self.DATASET_NAME}_{self.UNET5_FOLD}']
-            model = checkpoint[f'Model']
-            model.load_state_dict(checkpoint['weights'])
+            neural_model = checkpoint[f'Model']
+            neural_model.load_state_dict(checkpoint['weights'])
             kernel_sz = self.CROPP_KERNEL 
 
         test_list = self.jsnlst.load_dataset_list('test_list')
@@ -185,16 +218,24 @@ class ValidationRun(CardioCascadeNet.MetaParameters):
 
         print(f'Test size: {len(test_list)}')
 
-        show_predicted_masks = CardioCascadeNet.MaskPrediction().prediction_masks(model, test_loader)
-        tm = CardioCascadeNet.TissueMetrics(model, test_loader)
+        show_predicted_masks = CardioCascadeNet.MaskPrediction().prediction_masks(neural_model, test_loader)
+        
+        self.pltres.show_predicted(show_predicted_masks)
 
-        # try:
-        #     bland_dict_class_stats = self.pltres.bland_altman_per_subject(model, test_list, meta, kernel_sz)
-        #     dict_class_stats = self.pltres.stats_per_subject(model, test_list, meta, kernel_sz)
+        tm = CardioCascadeNet.TissueMetrics(neural_model, test_loader)
 
-        # except ValueError:
-        #     print(f'Subjects has no suitable images !!!!')
+        Vgt, Vcm = tm.relative_volume()
+        # print(Vgt, Vcm)
+
+        try:
+            bland_dict_class_stats = self.pltres.bland_altman_per_subject(neural_model, test_list, kernel_sz)
+            dict_class_stats = self.pltres.stats_per_subject(neural_model, test_list, kernel_sz)
+
+            self.show_dict_class_stats(dict_class_stats)
+
+        except ValueError:
+            print(f'Subjects has no suitable images !!!!')
 
 
 if __name__ == "__main__":
-    VaidationRun().validation_run()
+    ValidationRun().validation_run()

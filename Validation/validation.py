@@ -9,6 +9,7 @@ GitHub: https://github.com/LeTond
 
 
 import torch
+import numpy as np
 
 from torch import nn
 
@@ -29,14 +30,6 @@ class DiceLoss(nn.Module):
         A_sum = torch.sum(iflat * iflat)
         B_sum = torch.sum(tflat * tflat)
         return (2.0 * intersection + smooth) / (A_sum + B_sum + smooth)
-
-
-def create_hist(value_list: list):
-    img_np = np.array(value_list)
-    plt.hist(img_np.ravel(), bins=20, density=False)
-    plt.xlabel("DSC")
-    plt.ylabel("Images")
-    plt.title("Distribution of dice")
 
 
 class MaskPrediction(CardioCascadeNet.MetaParameters):
@@ -102,11 +95,10 @@ class MaskPrediction(CardioCascadeNet.MetaParameters):
 
 
 class TissueMetrics(MaskPrediction):
-
-    def __init__(self, Net, dataset=None):         
+    def __init__(self, model, dataset=None):         
         super(MaskPrediction, self).__init__()
         
-        model = Net
+        model = model
         dataset_ = dataset
         mp = MaskPrediction().prediction_masks(model, dataset_)
 
@@ -226,25 +218,6 @@ class TissueMetrics(MaskPrediction):
                 self.dict_class_stats[f'FN_{self.DICT_CLASS[key]}'].append(fnfp_metrics[0])
                 self.dict_class_stats[f'FP_{self.DICT_CLASS[key]}'].append(fnfp_metrics[1])
 
-        # for key in range(3, self.NUM_CLASS):
-        #     mean_precision = round(np.sum(dict_class_stats[f'Precision_{self.DICT_CLASS[key]}']) / self.shp[0], 3) 
-        #     mean_recall = round(np.sum(dict_class_stats[f'Recall_{self.DICT_CLASS[key]}']) / self.shp[0], 3)
-        #     mean_accur = round(np.sum(dict_class_stats[f'Accuracy_{self.DICT_CLASS[key]}']) / self.shp[0], 3)
-        #     mean_dice = round(np.sum(dict_class_stats[f'Dice_{self.DICT_CLASS[key]}']) / self.shp[0], 3)
-
-        #     sum_fn = np.sum(dict_class_stats[f'FN_{self.DICT_CLASS[key]}'])
-        #     sum_fp = np.sum(dict_class_stats[f'FP_{self.DICT_CLASS[key]}'])
-
-        #     print(f'{self.sub_names[0]} '
-        #         f'Class_{self.DICT_CLASS[key]}, '
-        #         f'Precision: {mean_precision}, '
-        #         f'Recall: {mean_recall}, '
-        #         f'Accuracy: {mean_accur}, '
-        #         f'Dice: {mean_dice}, '
-        #         f'FN: {sum_fn}, '
-        #         f'FP: {sum_fp} '
-        #         )
-
         return self.dict_class_stats
 
     @staticmethod
@@ -296,4 +269,22 @@ class TissueMetrics(MaskPrediction):
 
 
 
+        # for key in range(3, self.NUM_CLASS):
+        #     mean_precision = round(np.sum(dict_class_stats[f'Precision_{self.DICT_CLASS[key]}']) / self.shp[0], 3) 
+        #     mean_recall = round(np.sum(dict_class_stats[f'Recall_{self.DICT_CLASS[key]}']) / self.shp[0], 3)
+        #     mean_accur = round(np.sum(dict_class_stats[f'Accuracy_{self.DICT_CLASS[key]}']) / self.shp[0], 3)
+        #     mean_dice = round(np.sum(dict_class_stats[f'Dice_{self.DICT_CLASS[key]}']) / self.shp[0], 3)
+
+        #     sum_fn = np.sum(dict_class_stats[f'FN_{self.DICT_CLASS[key]}'])
+        #     sum_fp = np.sum(dict_class_stats[f'FP_{self.DICT_CLASS[key]}'])
+
+        #     print(f'{self.sub_names[0]} '
+        #         f'Class_{self.DICT_CLASS[key]}, '
+        #         f'Precision: {mean_precision}, '
+        #         f'Recall: {mean_recall}, '
+        #         f'Accuracy: {mean_accur}, '
+        #         f'Dice: {mean_dice}, '
+        #         f'FN: {sum_fn}, '
+        #         f'FP: {sum_fp} '
+        #         )
 
