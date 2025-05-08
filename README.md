@@ -1,4 +1,4 @@
-# CardioCascadeUnet v1.2: 
+# CardioCascadeUnet v1.4: 
 
 CardioCascadeUnet framework is destined for training and inference of the 
 cascade architecture based on U-Net for the tasks of segmentation and 
@@ -37,7 +37,7 @@ of information from the image outside the gap (default is 8 pixels), to improve
 scar and myocardial tissue segmentation in the apical slices.
 
 ## UNET4
-- It used to identify the level of the myocardium in each slice (basal, 
+- It used to identify the level of the LV in each slice (basal, 
 medial, apical, apex). 
 
 ## UNET5
