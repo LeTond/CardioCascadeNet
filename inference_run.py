@@ -97,11 +97,13 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
         jsnlst = CardioCascadeNet.JsonFoldList()
         jsnlst.create_folds_list
 
-        # dataset_list = CardioCascadeNet.ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_images_new/').get_dataset_list()
+        # dataset_list = jsnlst.load_dataset_list('test_list')
+        # dataset_list = jsnlst.load_dataset_list('train_list')
+        dataset_list = CardioCascadeNet.ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_images_new/').get_dataset_list()
         # dataset_list = CardioCascadeNet.ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_images_new/').get_file_path_list()
 
-        dataset_list = jsnlst.load_dataset_list('test_list')
-        jsnlst.pprint('test_list')
+        # jsnlst.pprint('test_list')
+        # jsnlst.pprint('train_list')
         print(dataset_list)
 
         ###########################################################################################################
@@ -127,7 +129,7 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
                         masks_list_03 = self.model_inference(
                             file_dir = self.NEW_UNET3_MASKS_PATH, file_name = file_name, 
                             masks_list = masks_list_02, model_fold = self.UNET3_FOLD, 
-                            unet_type = 'close_cropp', mask_type = None, file_type = file_type, pdf_flag = False)
+                            unet_type = 'close_cropp', mask_type = None, file_type = file_type, pdf_flag = True)
 
                     if self.UNET4 is True:
                         masks_list_04 = self.model_inference(

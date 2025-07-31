@@ -23,10 +23,12 @@ class Statistics(CardioCascadeNet.MetaParameters):
 			summ_stat_value, summ_stat_value_pslc = [], []
 
 			for sbjct in self.__subjects_list:	
-				cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'{self.NEW_UNET3_MASKS_PATH}{sbjct}', clss)
+				cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'{self.NEW_UNET2_MASKS_PATH}{sbjct}', clss)
 				# cm = CardioCascadeNet.CompareBullsEyeMatrix(f'{self.DATASET_DIR}{self.DATASET_NAME}_mask_bullmasks/{sbjct}', f'{self.NEW_UNET5_MASKS_PATH}{sbjct}', clss)
 				summ_stat_value.append(cm.stat_value(function))
+				
 				# print(cm)
+				
 				for stvl2d in cm.stat_value_2d(function):
 					summ_stat_value_pslc.append(stvl2d)
 
@@ -44,13 +46,14 @@ class ComparingRun():
 
 	def comparing_run(self):
 		jsnlst = CardioCascadeNet.JsonFoldList()
+		
 		test_list = jsnlst.load_dataset_list('test_list')
 		subjects_list = test_list
 
 		stats = Statistics(subjects_list)
 		stats.get_stat_value('dice')
-		# stats.get_stat_value('precision')
-		# stats.get_stat_value('recall')
+		stats.get_stat_value('precision')
+		stats.get_stat_value('recall')
 
 
 

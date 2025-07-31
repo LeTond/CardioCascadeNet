@@ -279,11 +279,11 @@ class CompareMatrix(CardioCascadeNet.MetaParameters):
     def __str__(self):
         out_message = ""
         out_message += (f"Statistics was counted for {self.DICT_CLASS[self.num_class]} tissue ")
-        out_message += (f'{self.sub_name()}: '\
-            f' Mean Dice = {self.dice()}, ' \
-            f' Mean Recall = {self.recall()}, '\
-            f' Mean Precision = {self.precision()}, '\
-            f' Mean Jaccard = {self.jaccard()}, '\
+        out_message += (f'{self.sub_name()}: \n'\
+            f' Mean Dice = {self.dice()}, \n' \
+            f' Mean Recall = {self.recall()}, \n'\
+            f' Mean Precision = {self.precision()}, \n'\
+            f' Mean Jaccard = {self.jaccard()}, \n'\
             # f' Mean HD = {self.hausdorff_distance()}, '\
             # f' Mean FPR = {self.fpr()}, '\
             )

@@ -51,9 +51,6 @@ class JsonFoldList(CardioCascadeNet.MetaParameters):
         test_list = self.dataset_list[round(0.8 * dataset_size):]
         train_list  = list(set(self.dataset_list) - set(test_list))
 
-        # test_list = ['SubHCM002.nii', 'SubHCM003.nii', 'SubHCM005.nii', 'SubHCM013.nii', 'SubHCM024.nii', 'SubHCM026.nii', 'SubHCM035.nii', 'SubHCM036.nii', 'SubHCM042.nii', 'SubHCM053.nii', 'SubHCM059.nii', 'SubHCM061.nii', 'SubHCM066.nii', 'SubHCM068.nii', 'SubHCM070.nii', 'SubHCM076.nii', 'SubHCM080.nii', 'SubHCM084.nii', 'SubHCM093.nii', 'SubHCM095.nii']
-        # train_list  = list(set(self.dataset_list) - set(test_list))
-
         train_dataset_size = len(train_list)
 
         valid_list_01 = train_list[round(0.8 * train_dataset_size):]

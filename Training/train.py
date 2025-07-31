@@ -89,9 +89,11 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
 
     def train(self):
         trigger_times, the_last_loss = 0, 100
-
+        best_results = ''
+        
         for epoch in range(self.EPOCHS + 1):
-            results = ''
+            current_results = ''
+
             time_start_epoch = time.time()
             
             self.model.train()
@@ -128,17 +130,18 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
             # val_loss = validating[0]
             # self.scheduler_gen.step(val_loss)
             
-            results += f'TRAIN: Loss = {round(training[0], 3)}'
+            current_results += f'EPOCH: {epoch}\n'
+            current_results += f'TRAIN: Loss = {round(training[0], 3)}'
             
             for key in range(1, self.NUM_CLASS):
-                results += f' Dice_{self.DICT_CLASS[key]} = ' + str(round(training[1].get(f'Dice_{self.DICT_CLASS[key]}'), 3))
-            
-            results += f'\nVALID: Loss = {round(validating[0], 3)}'
+                current_results += f' Dice_{self.DICT_CLASS[key]} = ' + str(round(training[1].get(f'Dice_{self.DICT_CLASS[key]}'), 3))
+                
+            current_results += f'\nVALID: Loss = {round(validating[0], 3)}'
             
             for key in range(1, self.NUM_CLASS):
-                results += f' Dice_{self.DICT_CLASS[key]} = ' + str(round(validating[1].get(f'Dice_{self.DICT_CLASS[key]}'), 3))
+                current_results += f' Dice_{self.DICT_CLASS[key]} = ' + str(round(validating[1].get(f'Dice_{self.DICT_CLASS[key]}'), 3))
             
-            self.fdwr.log_stats(project_name = self.PROJ_NAME, results = results)
+            self.fdwr.log_stats(project_name = self.PROJ_NAME, results = current_results)
 
             if validating[0] > the_last_loss:
                 trigger_times += 1
@@ -147,6 +150,7 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
                 if trigger_times >= self.EARLY_STOPPING:
                     print('Early stopping!\nStart to test process.')
                     
+                    self.save_hyperparams(best_results)
                     return self.model
 
             else:
@@ -154,6 +158,7 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
 
             if validating[0] <= the_last_loss:
                 the_last_loss = validating[0]
+                best_results = current_results
 
                 try:
                     checkpoint = torch.load(f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
@@ -167,10 +172,30 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
 
                 print(f'{self.DATASET_NAME}_model.pth - epoch {epoch} saved!')
 
-            print(results)
+            print(current_results)
+
             time_end_epoch = time.time()
             print(f'Epoch time: {round(time_end_epoch - time_start_epoch)} seconds') 
-            
+        
+        self.save_hyperparams(best_results)   
+
         return self.model
+
+    def save_hyperparams(self, best_results: str) -> None:
+        hyperparams = f'Trainig date: {time.ctime()}, \n' \
+        f'AUGMENTATION: {self.AUGMENTATION}, FREEZE_BN: {self.FREEZE_BN}, PRETRAIN: {self.PRETRAIN}, \n' \
+        f'NOISE: {self.NOISE}, EMPTY: {self.EMPTY}, MULTYGAP: {self.MULTYGAP}, \n' \
+        f'UNET1: {self.UNET1}, UNET2: {self.UNET2}, UNET3: {self.UNET3}, UNET4: {self.UNET4}, UNET5: {self.UNET5}, \n' \
+        f'BGCROPP: {self.BGCROPP}, LVCROPP: {self.LVCROPP}, BGLVCROPP: {self.BGLVCROPP}, SHUFFLE: {self.SHUFFLE}, \n' \
+        f'KERNEL: {self.KERNEL}, CROPP_KERNEL: {self.CROPP_KERNEL},' \
+        f'CHANNELS: {self.CHANNELS}, LR: {self.LR}, BT_SZ: {self.BT_SZ}, EPOCHS: {self.EPOCHS}, \n' \
+        f'DROPOUT: {self.DROPOUT}, FEATURES: {self.FEATURES}, WDC: {self.WDC}, ' \
+        f'EARLY_STOPPING: {self.EARLY_STOPPING}, TMAX: {self.TMAX}, CLIP_RATE: {self.CLIP_RATE}, \n' \
+        f'SCAR_DICT_CLASS: {self.SCAR_DICT_CLASS}, \nMYOLEVEL_DICT_CLASS: {self.MYOLEVEL_DICT_CLASS}, \n' \
+        f'BULLEYE_DICT_CLASS: {self.BULLEYE_DICT_CLASS}, \nTARGET_CE_WEIGHTS: {self.TARGET_CE_WEIGHTS}, \n' \
+        f'SCAR_CE_WEIGHTS: {self.SCAR_CE_WEIGHTS}, \nMYOLEVEL_CE_WEIGHTS: {self.MYOLEVEL_CE_WEIGHTS}, \n' \
+        f'BULLEYE_CE_WEIGHTS: {self.BULLEYE_CE_WEIGHTS} \n\nBEST_RESULTS: {best_results}\n\n' \
+
+        self.fdwr.log_stats(project_name = f'{self.PROJ_NAME}_hyperparams', results = hyperparams)
 
 

@@ -44,7 +44,7 @@ class GetData(CardioCascadeNet.MetaParameters):
     @property
     def mask_type(self):
         if self.BGCROPP is True:
-            return 'bgcrop'
+            return 'bgcropp'
         elif self.LVCROPP is True:
             return 'lvcropp'
         elif self.BGLVCROPP is True:
@@ -63,7 +63,7 @@ class GetData(CardioCascadeNet.MetaParameters):
         dict_class_stats.update(
                 {
                     f'{self.DICT_CLASS[key]}' : 
-                        {'Subjects': 0, 'pixels': 0} for key in range(1, self.NUM_CLASS)
+                        {'Subjects': 0, 'Slices': 0, 'Pixels': 0} for key in range(1, self.NUM_CLASS)
                 }
             )
 
@@ -81,18 +81,26 @@ class GetData(CardioCascadeNet.MetaParameters):
                         diction[f'{self.DICT_CLASS[key]}'].update(
                             {
                                 'Subjects': diction[f'{self.DICT_CLASS[key]}']['Subjects'] + 1,
-                                'pixels': diction[f'{self.DICT_CLASS[key]}']['pixels'] + masks[masks == key].sum().item()
+                                'Pixels': diction[f'{self.DICT_CLASS[key]}']['Pixels'] + masks[masks == key].sum().item()
                             }
                         )
+
+                    for slc in range(masks.shape[2]):
+                        diction[f'{self.DICT_CLASS[key]}'].update(
+                                {
+                                    'Slices': diction[f'{self.DICT_CLASS[key]}']['Slices'] + 1
+                                }
+                            )
+
 
         return diction
 
     def check_mask(self, mask, sub_name, slc):
         if self.EMPTY is False and mask[mask > 0].sum().item() == 0:
-            print(f"Subject {sub_name} slice {slc} was passed because EMPY is FALSE")
+            # print(f"Subject {sub_name} slice {slc} was passed because EMPY is FALSE")
             return False
         elif (mask > (self.NUM_CLASS - 1)).any():
-            print(f"Subject {sub_name} slice {slc} has class out of range class {self.NUM_CLASS}")
+            # print(f"Subject {sub_name} slice {slc} has class out of range class {self.NUM_CLASS}")
             return False
         else:
             return True

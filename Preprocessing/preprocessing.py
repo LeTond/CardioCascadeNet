@@ -244,7 +244,10 @@ class PreprocessData(CardioCascadeNet.MetaParameters):
     @property
     def shuff_dataset(self):
         temp = list(zip(self.image, self.mask, self.template, self.names))
-        random.shuffle(temp)
+        
+        if self.SHUFFLE:
+            random.shuffle(temp)
+        
         images, masks, templates, names = zip(*temp)
         
         return list(images), list(masks), list(templates), list(names)

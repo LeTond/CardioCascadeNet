@@ -56,6 +56,11 @@ class PredictListImages(CardioCascadeNet.MetaParameters):
             templates = CardioCascadeNet.ReadImages(f"{self.NEW_UNET3_MASKS_PATH}{self.file_path.split('/')[-1]}").view_matrix
 
         if masks is not None:
+            ##Case we are necessary in ETALON cropping
+            ###########################################################################
+            # masks = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_path.split('/')[-1]}").view_matrix
+            ###########################################################################
+
             images, masks, templates, self.def_coord = \
             CardioCascadeNet.CroppPreprocessData(images, masks, templates, unet_type = self.unet_type).presegmentation_tissues(None)
         else:
@@ -604,16 +609,16 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
         self.file_name = file_path.split('/')[-1]
         
         self.images_list = CardioCascadeNet.ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
-        self.bullmasks_list = CardioCascadeNet.ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
-        self.manual_bullmasks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}_bullmasks/{self.file_name}").view_matrix        
-        self.fibmasks_list = CardioCascadeNet.ReadImages(f"{self.NEW_UNET3_MASKS_PATH}{self.file_name}").view_matrix
-        self.manual_fibmasks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix        
+        self.fibmasks_list = CardioCascadeNet.ReadImages(f"{self.NEW_UNET2_MASKS_PATH}{self.file_name}").view_matrix
+        # self.bullmasks_list = CardioCascadeNet.ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
+        # self.manual_bullmasks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}_bullmasks/{self.file_name}").view_matrix        
+        # self.manual_fibmasks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix        
         
         self.images_list = self.images_list.transpose(2, 0, 1)
         self.fibmasks_list = self.fibmasks_list.transpose(2, 0, 1)
-        self.manual_fibmasks_list = self.manual_fibmasks_list.transpose(2, 0, 1)
-        self.bullmasks_list = self.bullmasks_list.transpose(2, 0, 1)        
-        self.manual_bullmasks_list = self.manual_bullmasks_list.transpose(2, 0, 1)
+        # self.bullmasks_list = self.bullmasks_list.transpose(2, 0, 1)        
+        # self.manual_fibmasks_list = self.manual_fibmasks_list.transpose(2, 0, 1)
+        # self.manual_bullmasks_list = self.manual_bullmasks_list.transpose(2, 0, 1)
 
         self.smooth = 1e-5
         self.rows = 3
@@ -781,9 +786,9 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
         num_chunk = len(self.images_list) % self.rows
         chunk_list_images = list(self.divide_chunks(self.images_list, self.rows))
         chunk_list_fibmasks = list(self.divide_chunks(self.fibmasks_list, self.rows))
-        chunk_list_manual_fibmasks = list(self.divide_chunks(self.manual_fibmasks_list, self.rows))
-        chunk_list_bullmasks = list(self.divide_chunks(self.bullmasks_list, self.rows))
-        chunk_list_manual_bullmasks = list(self.divide_chunks(self.manual_bullmasks_list, self.rows))
+        # chunk_list_bullmasks = list(self.divide_chunks(self.bullmasks_list, self.rows))
+        # chunk_list_manual_fibmasks = list(self.divide_chunks(self.manual_fibmasks_list, self.rows))
+        # chunk_list_manual_bullmasks = list(self.divide_chunks(self.manual_bullmasks_list, self.rows))
 
         for key in range(1, self.NUM_CLASS): 
             volume_dict_class[f'Chunk_{self.DICT_CLASS[key]}'] = list(self.divide_chunks(volume_dict_class[f'Volume_{self.DICT_CLASS[key]}'], self.rows))
@@ -794,51 +799,51 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
         for page in range(num_pages):
             images = chunk_list_images[page]
             fibmasks = chunk_list_fibmasks[page]
-            manual_fibmasks = chunk_list_manual_fibmasks[page]
-            bullmasks = chunk_list_bullmasks[page]
-            manual_bullmasks = chunk_list_manual_bullmasks[page]
+            # bullmasks = chunk_list_bullmasks[page]
+            # manual_fibmasks = chunk_list_manual_fibmasks[page]
+            # manual_bullmasks = chunk_list_manual_bullmasks[page]
 
-            images_on_page = len(bullmasks)
+            images_on_page = len(fibmasks)
             
             if images_on_page > 1:
                 num_images = images_on_page
             elif images_on_page == 1:
                 num_images = 3
 
-            figure, ax = plt.subplots(nrows = num_images, ncols = 4, figsize = (10, 10))
+            figure, ax = plt.subplots(nrows = num_images, ncols = 2, figsize = (10, 10))
             colormap = plt.get_cmap('viridis')  # 'plasma' or 'viridis'
             colormap.set_under('k', alpha = .5)
 
             for slc in range(images_on_page):                    
                 image_slc = self.preprocess_matrix(images[slc])
                 fibmask_slc  = self.preprocess_matrix(fibmasks[slc])
-                manual_fibmask_slc = self.preprocess_matrix(manual_fibmasks[slc])
-                bullmask_slc = self.preprocess_matrix(bullmasks[slc])
-                manual_bullmask_slc = self.preprocess_matrix(manual_bullmasks[slc])
+                # bullmask_slc = self.preprocess_matrix(bullmasks[slc])
+                # manual_fibmask_slc = self.preprocess_matrix(manual_fibmasks[slc])
+                # manual_bullmask_slc = self.preprocess_matrix(manual_bullmasks[slc])
 
-                ax[slc, 0], manual_fibmask_slc = self.add_annotate_class(slc, ax[slc, 0], manual_fibmask_slc)
+                # ax[slc, 0], manual_fibmask_slc = self.add_annotate_class(slc, ax[slc, 0], manual_fibmask_slc)
                 ax[slc, 1], fibmask_slc = self.add_annotate_class(slc, ax[slc, 1], fibmask_slc)
-                ax[slc, 2], bullmask_slc = self.add_annotate_class(slc, ax[slc, 2], bullmask_slc)
-                ax[slc, 3], manual_bullmask_slc = self.add_annotate_class(slc, ax[slc, 3], manual_bullmask_slc)
+                # ax[slc, 2], bullmask_slc = self.add_annotate_class(slc, ax[slc, 2], bullmask_slc)
+                # ax[slc, 3], manual_bullmask_slc = self.add_annotate_class(slc, ax[slc, 3], manual_bullmask_slc)
 
-                bullmask_slc = self.change_17seg_classes(bullmask_slc)
-                manual_bullmask_slc = self.change_17seg_classes(manual_bullmask_slc)
+                # bullmask_slc = self.change_17seg_classes(bullmask_slc)
+                # manual_bullmask_slc = self.change_17seg_classes(manual_bullmask_slc)
 
                 ax[slc, 0].imshow(image_slc, plt.get_cmap('gray'))
-                ax[slc, 0].imshow(manual_fibmask_slc, alpha = 0.2, interpolation = None, cmap = colormap,  vmin = 0.5)
-                ax[slc, 0].contour(manual_fibmask_slc, alpha = 0.9, cmap = colormap,  vmin = 0.5)
+                # ax[slc, 0].imshow(manual_fibmask_slc, alpha = 0.2, interpolation = None, cmap = colormap,  vmin = 0.5)
+                # ax[slc, 0].contour(manual_fibmask_slc, alpha = 0.9, cmap = colormap,  vmin = 0.5)
 
                 ax[slc, 1].imshow(image_slc, plt.get_cmap('gray'))
                 ax[slc, 1].imshow(fibmask_slc, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
                 ax[slc, 1].contour(fibmask_slc, alpha = 0.5)
 
-                ax[slc, 2].imshow(image_slc, plt.get_cmap('gray'))
-                ax[slc, 2].imshow(bullmask_slc, alpha = 0.2, interpolation = None, cmap = colormap,  vmin = 0.5)
-                ax[slc, 2].contour(bullmask_slc, alpha = 0.9, cmap = colormap,  vmin = 0.5)
+                # ax[slc, 2].imshow(image_slc, plt.get_cmap('gray'))
+                # ax[slc, 2].imshow(bullmask_slc, alpha = 0.2, interpolation = None, cmap = colormap,  vmin = 0.5)
+                # ax[slc, 2].contour(bullmask_slc, alpha = 0.9, cmap = colormap,  vmin = 0.5)
 
-                ax[slc, 3].imshow(image_slc, plt.get_cmap('gray'))
-                ax[slc, 3].imshow(manual_bullmask_slc, alpha = 0.2, interpolation = None, cmap = colormap,  vmin = 0.5)
-                ax[slc, 3].contour(manual_bullmask_slc, alpha = 0.9, cmap = colormap,  vmin = 0.5)
+                # ax[slc, 3].imshow(image_slc, plt.get_cmap('gray'))
+                # ax[slc, 3].imshow(manual_bullmask_slc, alpha = 0.2, interpolation = None, cmap = colormap,  vmin = 0.5)
+                # ax[slc, 3].contour(manual_bullmask_slc, alpha = 0.9, cmap = colormap,  vmin = 0.5)
 
                 report_title = ''
                 report_title = self.threshold_scar(report_title, page, slc, volume_dict_class)

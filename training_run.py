@@ -10,7 +10,6 @@ GitHub: https://github.com/LeTond
 
 
 import torch
-from torchsummary import summary
 from torch.utils.data import DataLoader
 
 import CardioCascadeNet
@@ -25,14 +24,15 @@ class TrainRun(CardioCascadeNet.MetaParameters):
         self.cmc = CardioCascadeNet.ChooseModelConfig()
         self.jsnlst = CardioCascadeNet.JsonFoldList()
         self.loss_function = CardioCascadeNet.ChooseLossFunction().loss_function
-        CardioCascadeNet.FileDirectoryWorker().create_dir_log(project_name = self.PROJ_NAME)
+        self.fdwr = CardioCascadeNet.FileDirectoryWorker()
+
+        self.fdwr.create_dir_log(project_name = self.PROJ_NAME)
+
 
     def train_run(self):
         model = self.cmc.model
         optimizer = self.cmc.optimizer
         scheduler_gen = self.cmc.scheduler_gen
-
-        # summary(model, input_size = (1, 64, 64))  # didn't work on ARM GPU
 
         transform_01 = self.chtfrm.choose_transforms('transform_01')
         transform_02 = self.chtfrm.choose_transforms('transform_02')
@@ -72,7 +72,7 @@ class TrainRun(CardioCascadeNet.MetaParameters):
         # Creating loaders for training and validating network
         ########################################################################################################################
         # self.cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet1_Fold_full/')
-        # self.cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet2_Fold_full/')
+        self.cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet2_Fold_full/')
         # self.cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet3_Fold_full/')
         # self.cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet4_Fold_full/')
         # self.cmc.rewrite_weights('ALMAZ', 'HCM_adult', 'Unet5_Fold_full/')
