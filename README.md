@@ -1,15 +1,43 @@
 # CardioCascadeUnet v1.4: 
 
-CardioCascadeUnet framework is destined for training and inference of the 
-cascade architecture based on U-Net for the tasks of segmentation and 
-localization of myocardial scar in LGE magnetic resonance images of the 
-heart.
+### CardioCascadeUnet framework is destined for training and inference of the cascade architecture based on AttentionU-Net for the tasks of segmentation and localization of myocardial scar in LGE magnetic resonance images of the heart.
 
 ![Cascade-logo_01](images/Picture_bull'e_eye.png)
 
 *******************************************************************************
+## Downloading models weights:
+From CascadeCardioUnet root directory 
+(wget is required)
+
+In MacOs:
+```Shell
+brew install wget
+```
+or in Linux
+```Shell
+sudo apt install wget
+```
+
+Further:
+```Shell
+cd ./Model
+chmod +x get_weights.sh
+./get_weights.sh
+cd .. 
+```
+
+*******************************************************************************
+# Installation:
+## Conda Env creating and installing requirements
+```Shell
+conda create -n cardio python=3.9
+conda activate cardio
+```
+
 ## Requirements
+```Shell
 pip install -r requirements.txt
+```
 
 Also training and inference of networks was tested on macOS Sonoma, M1 cpu with 
 pytorch with mps technology support
@@ -18,7 +46,6 @@ macOS-14.6.1-arm64-arm-64bit
 python version: 3.9.16 (main, Mar  8 2023, 04:29:24) 
 torch version: 2.0.0
 numpy version: 1.24.2
-
 
 *******************************************************************************
 # Neural Networks
@@ -82,6 +109,13 @@ main.py:
 	    CardioCascadeNet.ComparingRun().comparing_run()
 	    CardioCascadeNet.CountRelvolumeRun().count_rel_volume_run()
 	    CardioCascadeNet.ValidationRun().validation_run()
+
+## Run training and inference: 
+```Shell
+python main.py
+```
+
+
 *******************************************************************************
 ### Directories structure:
 
