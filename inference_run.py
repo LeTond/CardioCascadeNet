@@ -129,7 +129,7 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
                         masks_list_03 = self.model_inference(
                             file_dir = self.NEW_UNET3_MASKS_PATH, file_name = file_name, 
                             masks_list = masks_list_02, model_fold = self.UNET3_FOLD, 
-                            unet_type = 'close_cropp', mask_type = None, file_type = file_type, pdf_flag = True)
+                            unet_type = 'close_cropp', mask_type = None, file_type = file_type, pdf_flag = False)
 
                     if self.UNET4 is True:
                         masks_list_04 = self.model_inference(

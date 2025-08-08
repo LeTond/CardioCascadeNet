@@ -23,7 +23,7 @@ class Statistics(CardioCascadeNet.MetaParameters):
 			summ_stat_value, summ_stat_value_pslc = [], []
 
 			for sbjct in self.__subjects_list:	
-				cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'{self.NEW_UNET3_MASKS_PATH}{sbjct}', clss)
+				cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'{self.NEW_UNET2_MASKS_PATH}{sbjct}', clss)
 				
 				# cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'./Dataset/Almaz_masks_Max/{sbjct}', clss)
 				# cm = CardioCascadeNet.CompareMatrix(f'./Dataset/Almaz_masks_Max/{sbjct}', f'{self.NEW_UNET3_MASKS_PATH}{sbjct}', clss)
