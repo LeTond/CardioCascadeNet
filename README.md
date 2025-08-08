@@ -142,7 +142,15 @@ Data directories should have a similar structure:
 	|   |   |   └── mask_06.nii
 	|   |   |   ├── mask_07.nii
 	|   |   |   └── mask_08.nii
-	
+	|	|   |
+	|   ├── Results
+	|   |   ├── PROJ_NAME_Unet1_masks_new
+	|   |   ├── PROJ_NAME_Unet2_masks_new
+	|   |   ├── PROJ_NAME_Unet3_masks_new
+	|   |   ├── PROJ_NAME_Unet4_masks_new
+	|   |   ├── PROJ_NAME_Unet5_masks_new
+
+ 
 ### Training:
 
 
