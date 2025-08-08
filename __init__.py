@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.4
-Date: 04-05-2025
+Version: 1.5
+Date: 08-08-2025
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -23,8 +23,12 @@ from CardioCascadeNet.Postprocessing.postprocessing import MaskPostprocessing, I
 from CardioCascadeNet.Inference.inference import PredictListImages, PredictionMask, NiftiSaver, \
 				DicomSaver, PdfSaver
 
-from CardioCascadeNet.Model.unet2D import UNet_2D, UNet_2D_AttantionLayer, SwinUNet, UNetResnet, SegNet
-from CardioCascadeNet.Model import resnet
+from CardioCascadeNet.Model.unet2D import UNet_2D, UNet_2D_AttantionLayer
+from CardioCascadeNet.Model.unetResnet import UNetResnet
+from CardioCascadeNet.Model.swinUnet import SwinUNet
+from CardioCascadeNet.Model.segNet import SegNet
+from CardioCascadeNet.Model.R2AttU_Net import R2AttU_Net
+from CardioCascadeNet.Model.resNet import ResNet
 
 from CardioCascadeNet.Validation.validation import DiceLoss, MaskPrediction, TissueMetrics
 from CardioCascadeNet.Validation.comparing import CompareMatrix, CompareBullsEyeMatrix

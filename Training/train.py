@@ -141,7 +141,7 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
             for key in range(1, self.NUM_CLASS):
                 current_results += f' Dice_{self.DICT_CLASS[key]} = ' + str(round(validating[1].get(f'Dice_{self.DICT_CLASS[key]}'), 3))
             
-            self.fdwr.log_stats(project_name = self.PROJ_NAME, results = current_results)
+            self.fdwr.log_stats(project_name = (self.PROJ_NAME + '/' + self.DATASET_NAME), results = current_results)
 
             if validating[0] > the_last_loss:
                 trigger_times += 1

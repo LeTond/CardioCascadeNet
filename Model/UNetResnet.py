@@ -131,6 +131,7 @@ class UNetResnet(BaseModel, CardioCascadeNet.MetaParameters):
             x = F.interpolate(x, size=(H, W), mode="bilinear", align_corners=True)
 
         x = self.conv7(self.conv6(x))
+        
         return x
 
     def get_backbone_params(self):

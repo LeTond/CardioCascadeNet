@@ -8,7 +8,6 @@ GitHub: https://github.com/LeTond
 """
 
 
-
 import torch
 from torch.utils.data import DataLoader
 
@@ -26,8 +25,7 @@ class TrainRun(CardioCascadeNet.MetaParameters):
         self.loss_function = CardioCascadeNet.ChooseLossFunction().loss_function
         self.fdwr = CardioCascadeNet.FileDirectoryWorker()
 
-        self.fdwr.create_dir_log(project_name = self.PROJ_NAME)
-
+        self.fdwr.create_dir_log(project_name = (self.PROJ_NAME))
 
     def train_run(self):
         model = self.cmc.model

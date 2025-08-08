@@ -97,9 +97,9 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
         jsnlst = CardioCascadeNet.JsonFoldList()
         jsnlst.create_folds_list
 
-        # dataset_list = jsnlst.load_dataset_list('test_list')
+        dataset_list = jsnlst.load_dataset_list('test_list')
         # dataset_list = jsnlst.load_dataset_list('train_list')
-        dataset_list = CardioCascadeNet.ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_images_new/').get_dataset_list()
+        # dataset_list = CardioCascadeNet.ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_images_new/').get_dataset_list()
         # dataset_list = CardioCascadeNet.ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_images_new/').get_file_path_list()
 
         # jsnlst.pprint('test_list')
