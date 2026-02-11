@@ -1,6 +1,6 @@
-# CardioCascadeUnet v1.4: 
+# CardioCascadeUnet v1.5: 
 
-### CardioCascadeUnet framework is destined for training and inference of the cascade architecture based on AttentionU-Net for the tasks of segmentation and localization of myocardial scar in LGE magnetic resonance images of the heart.
+### The CardioCascadeUnet framework is designed for training and inferencing of the cascade architecture based on the AttentionU-Net model for the tasks of segmenting and localizing myocardial scar tissue in LGE (late gadolinium enhanced) magnetic resonance images of the heart
 
 ![Cascade-logo_01](images/Picture_bull'e_eye.png)
 
