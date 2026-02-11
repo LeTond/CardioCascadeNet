@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.4
-Date: 04-05-2025
+Version: 1.6
+Date: 10-02-2026
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -89,7 +89,7 @@ class ReadImages():
 
         for root, subfolder, files in os.walk(self.path_to_file):
             for item in files:
-                if item.endswith('.nii') or item.endswith('.dcm'):
+                if item.endswith('.nii.gz') or item.endswith('.dcm'):
                     filenamepath = str(os.path.join(root, item))
                     path_list.append(filenamepath)
 
@@ -358,15 +358,19 @@ class MaskPreprocessing(CardioCascadeNet.MetaParameters):
         for basal in range(1, 7):
             if (mask == basal).any():
                 template[template == 40] = 1
+                # template[template != 40] = 1    #VALID batch
         for medial in range(7, 13):
             if (mask == medial).any():
                 template[template == 40] = 2
+                # template[template != 40] = 2    #VALID batch
         for apical in range(13, 17): 
             if (mask == apical).any():
                 template[template == 40] = 3
+                # template[template != 40] = 3    #VALID batch
         for apex in range(17, 18):
             if (mask == apex).any():
                 template[template == 40] = 4
+                # template[template != 40] = 4    #VALID batch
 
         template[template == 60] = 0
         template = template / len(self.MYOLEVEL_DICT_CLASS)

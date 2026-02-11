@@ -43,7 +43,7 @@ class JsonFoldList(CardioCascadeNet.MetaParameters):
     @property
     def json_dump(self):
         with open(self.json_file_path, "w") as fdct:
-            json.dump(self.folds_dict, fdct) # записываем структуру в файл
+            json.dump(self.folds_dict, fdct)
 
     @property
     def choose_folds_list(self):

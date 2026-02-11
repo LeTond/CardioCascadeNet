@@ -10,7 +10,7 @@ GitHub: https://github.com/LeTond
 
 import sys
 
-from CardioCascadeNet.configuration import MetaParameters, ChooseDevice, FocalLoss, \
+from CardioCascadeNet.configuration import MetaParameters, ChooseDevice, FocalLoss, ChooseTypeMatrix, \
 				ChooseKernelSize, ChooseModelConfig, ChooseLossFunction, ChooseTransform, device
 
 from CardioCascadeNet.Preprocessing.preprocessing import PreprocessData, ReadImages, MaskPreprocessing, \

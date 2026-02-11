@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.4
-Date: 04-05-2025
+Version: 1.6
+Date: 10-02-2026
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -72,21 +72,10 @@ class MaskPrediction(CardioCascadeNet.MetaParameters):
                         except:
                             pass
 
-                    # pred = np.array(pred.cpu(), dtype=np.float32)
-                    # threshold_matrix = InstancesFinder(pred, kernel = 64).threshold_matrix()
-                    # pred = TF.to_pil_image(threshold_matrix)
-                    # pred = TF.pil_to_tensor(pred)
-
-                    # rel_volume = ((pred==3).sum().item() + smooth) / ((pred==2).sum().item() + (pred==3).sum().item() + smooth) * 100
-                    
-                    # if rel_volume < 3 and 10 > (pred==3).sum().item() > 0:
-                    #     predict[slc][predict[slc]==3] = 2
-
                     for key in range(1, self.NUM_CLASS):
                         predict_ = (pred == key)
                         labels_ = (labl == key)
                         dice_metric = float(self.ds(predict_, labels_))
-                        # if dice_metric>0 and dice_metric!=0:
                         dice_layers[f'{self.DICT_CLASS[key]}'].append(dice_metric)
 
             shp = predict.shape
@@ -171,8 +160,8 @@ class TissueMetrics(MaskPrediction):
             images_slc = int(self.get_images_slice(self.sub_names[i])[2]) 
             images_sub = str(self.get_images_slice(self.sub_names[i])[0])
             
-            self.images_matrix = ReadImages(f"{self.IMAGES_DIR}/{images_sub}.nii").view_matrix()[:,:,-images_slc] 
-            self.masks_matrix = ReadImages(f"{self.MASKS_DIR}/{images_sub}.nii").view_matrix()[:,:,-images_slc] 
+            self.images_matrix = ReadImages(f"{self.IMAGES_DIR}/{images_sub}.nii.gz").view_matrix()[:,:,-images_slc] 
+            self.masks_matrix = ReadImages(f"{self.MASKS_DIR}/{images_sub}.nii.gz").view_matrix()[:,:,-images_slc] 
 
             mean_contrast_lv = self.get_image_contrast(num_label = 1)
             mean_contrast_myo = self.get_image_contrast(num_label = 2)
@@ -197,8 +186,6 @@ class TissueMetrics(MaskPrediction):
             dict_class_stats[f'GTVol_{self.DICT_CLASS[key]}'] = []
             dict_class_stats[f'CMVol_{self.DICT_CLASS[key]}'] = []
             
-            # dict_class_stats[f'Dice_{self.DICT_CLASS[key]}'] += float(self.ds(predict_, labels_))
-
         return dict_class_stats
 
     def image_metrics(self):
@@ -255,8 +242,6 @@ class TissueMetrics(MaskPrediction):
         pred_class_fpd = (self.predict == 3).cpu()
         
         for i in range(self.shp[0]):
-            # for key in range(1, self.NUM_CLASS):
-
             GT_myo = self.get_volume(labe_class_mlb[i])
             CM_myo = self.get_volume(pred_class_mpd[i])
             GT_fib = self.get_volume(labe_class_flb[i])
@@ -267,24 +252,4 @@ class TissueMetrics(MaskPrediction):
         
         return Vgt, Vcm
 
-
-
-        # for key in range(3, self.NUM_CLASS):
-        #     mean_precision = round(np.sum(dict_class_stats[f'Precision_{self.DICT_CLASS[key]}']) / self.shp[0], 3) 
-        #     mean_recall = round(np.sum(dict_class_stats[f'Recall_{self.DICT_CLASS[key]}']) / self.shp[0], 3)
-        #     mean_accur = round(np.sum(dict_class_stats[f'Accuracy_{self.DICT_CLASS[key]}']) / self.shp[0], 3)
-        #     mean_dice = round(np.sum(dict_class_stats[f'Dice_{self.DICT_CLASS[key]}']) / self.shp[0], 3)
-
-        #     sum_fn = np.sum(dict_class_stats[f'FN_{self.DICT_CLASS[key]}'])
-        #     sum_fp = np.sum(dict_class_stats[f'FP_{self.DICT_CLASS[key]}'])
-
-        #     print(f'{self.sub_names[0]} '
-        #         f'Class_{self.DICT_CLASS[key]}, '
-        #         f'Precision: {mean_precision}, '
-        #         f'Recall: {mean_recall}, '
-        #         f'Accuracy: {mean_accur}, '
-        #         f'Dice: {mean_dice}, '
-        #         f'FN: {sum_fn}, '
-        #         f'FP: {sum_fp} '
-        #         )
 

@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.4
-Date: 04-05-2025
+Version: 1.6
+Date: 10-02-2026
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -25,36 +25,8 @@ class GetData(CardioCascadeNet.MetaParameters):
         super(CardioCascadeNet.MetaParameters, self).__init__()
         self.files = files
         self.augmentation = augmentation
-        
-    @property
-    def unet_type(self):
-        if self.UNET5 is True:
-            return 'cropp'
-        elif self.UNET4 is True and self.UNET5 is False:
-            return 'cropp'
-        elif self.UNET3 is True and self.UNET4 is False:
-            return 'close_cropp'
-        elif self.UNET2 is True and self.UNET3 is False:
-            return 'cropp'
-        elif self.UNET1 is True and self.UNET2 is False:
-            return 'default'
-        else:
-            raise ValueError 
-
-    @property
-    def mask_type(self):
-        if self.BGCROPP is True:
-            return 'bgcropp'
-        elif self.LVCROPP is True:
-            return 'lvcropp'
-        elif self.BGLVCROPP is True:
-            return 'bglvcropp'
-        elif self.UNET4 is True and self.UNET5 is False:
-            return 'lv_level'
-        elif self.UNET5 is True:
-            return 'train_bull_level'
-        else:
-            return None
+        self.unet_type = CardioCascadeNet.ChooseTypeMatrix().unet_type()
+        self.mask_type = CardioCascadeNet.ChooseTypeMatrix().mask_type()
 
     @property
     def create_dict_class(self):
@@ -73,7 +45,7 @@ class GetData(CardioCascadeNet.MetaParameters):
         diction = self.create_dict_class
 
         for sub_name in sub_names:
-            if sub_name.endswith('.nii'):
+            if sub_name.endswith('.nii.gz'):
                 masks = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{sub_name}").view_matrix
 
                 for key in range(1, self.NUM_CLASS):
@@ -124,11 +96,11 @@ class GetData(CardioCascadeNet.MetaParameters):
     def pool_worker(self, file_name):
         list_images, list_masks, list_templates, list_names = [], [], [], []
 
-        if file_name.endswith('.nii'):
+        if file_name.endswith('.nii.gz'):
             images = CardioCascadeNet.ReadImages(f"{self.IMAGES_DIR}/{file_name}").view_matrix
             masks = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{file_name}").view_matrix
 
-            sub_name = file_name.replace('.nii', '')
+            sub_name = file_name.replace('.nii.gz', '')
 
             if self.mask_type == 'train_bull_level':
                 templates = masks.copy()
@@ -171,21 +143,10 @@ class GetData(CardioCascadeNet.MetaParameters):
                     print(f'Data MaskPreprocessing Problem with {sub_name}')
 
                 if self.check_mask(mask, sub_name, slc):    
-                    # image = self.patch_unfolder(image)
-                    # template = self.patch_unfolder(template)
-                    # mask = self.patch_unfolder(mask)
-
-                    # for i in range(9):
-                    #     list_images.append(image[i, :, :])
-                    #     list_masks.append(mask[i, :, :])
-                    #     list_templates.append(template[i, :, :])
-                    #     list_names.append(f'{sub_name} Slice {images.shape[2] - slc}')
-                    ########################################################################
                     list_images.append(image)
                     list_masks.append(mask)
                     list_templates.append(template)
                     list_names.append(f'{sub_name} Slice {images.shape[2] - slc}')
-                    ########################################################################
 
         return list_images, list_masks, list_templates, list_names
 
@@ -193,7 +154,7 @@ class GetData(CardioCascadeNet.MetaParameters):
     def generated_data_list(self):
         list_images, list_masks, list_templates, list_names = [], [], [], []
 
-        print(self.count_pathology(self.files))
+        # print(self.count_pathology(self.files))
 
         for subject in self.files:
             try:
@@ -205,45 +166,6 @@ class GetData(CardioCascadeNet.MetaParameters):
                     list_names.append(sub_names[slc])
             except:
                 pass 
-
-        # if self.AUGMENTATION and self.augmentation:
-        #     for subject in self.files:
-        #         try:
-        #             images, masks, templates, sub_names = self.pool_worker(subject)
-        #             for slc in range(len(images)): 
-        #                 list_images.append(images[slc])
-        #                 list_masks.append(masks[slc])
-        #                 list_templates.append(templates[slc])
-        #                 list_names.append(sub_names[slc])
-        #         except:
-        #             pass 
-
-        # for case in range(1):
-        #     with Pool(processes=4) as pool:
-        #         try:
-        #             for patch in pool.imap_unordered(self.pool_worker, self.files):
-        #                 size_img = len(patch[0])
-
-        #                 for slc in range(size_img):
-        #                     list_images.append(patch[0][slc])
-        #                     list_masks.append(patch[1][slc])
-        #                     list_templates.append(patch[2][slc])
-        #                     list_names.append(patch[3][slc])
-            
-        #         except:
-        #             pass 
-
-        # for i in range(1):
-        #     with Pool(processes=4) as pool:
-        #         try:
-        #             for patch in pool.imap_unordered(self.pool_worker, self.files):
-        #                 # if self.check_mask(patch[1]):
-        #                 list_images.append([img for img in patch[0]])
-        #                 list_masks.append([msk for msk in patch[1]])
-        #                 list_names.append([nm for nm in patch[2]])
-                            
-        #         except:
-        #             pass 
 
         try:
             list_images, list_masks, list_templates, list_names = \

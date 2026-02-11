@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.4
-Date: 04-05-2025
+Version: 1.6
+Date: 10-02-2026
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -26,11 +26,8 @@ class PlotResults(CardioCascadeNet.MetaParameters):
     def __init__(self):         
         super(CardioCascadeNet.MetaParameters, self).__init__()
 
-        if self.UNET2 is True:
-            self.kernel_sz = self.CROPP_KERNEL
-        elif self.UNET2 is False:
-            self.kernel_sz = self.KERNEL
-
+        self.unet_type = CardioCascadeNet.ChooseTypeMatrix().unet_type()
+        self.kernel_size = CardioCascadeNet.ChooseKernelSize().kernel_size(self.unet_type)
         self.dict_class_stats = self.create_dict_class()
         self.default_transform = CardioCascadeNet.ChooseTransform().choose_transforms('transform_01')
 
@@ -99,9 +96,9 @@ class PlotResults(CardioCascadeNet.MetaParameters):
     def prepare_plot(self, sub_names, origImage, origMask, predMask, dice_layers):
         figure, ax = plt.subplots(nrows = 1, ncols = 4, figsize = (12, 12))
 
-        origImage = np.resize(origImage.cpu(), (self.kernel_sz, self.kernel_sz))        
-        predMask = np.resize(predMask.cpu(), (self.kernel_sz, self.kernel_sz))
-        origMask = np.resize(origMask.cpu(), (self.kernel_sz, self.kernel_sz))
+        origImage = np.resize(origImage.cpu(), (self.kernel_size, self.kernel_size))        
+        predMask = np.resize(predMask.cpu(), (self.kernel_size, self.kernel_size))
+        origMask = np.resize(origMask.cpu(), (self.kernel_size, self.kernel_size))
 
         for key in range(1, self.NUM_CLASS):
             predMask[0][key-1] = key
@@ -158,7 +155,8 @@ class ValidationRun(CardioCascadeNet.MetaParameters):
         self.jsnlst = CardioCascadeNet.JsonFoldList()
         self.ds = CardioCascadeNet.DiceLoss()
         self.neural_model = self.choose_model
-        self.kernel_sz = self.choose_kernel_sz
+        self.unet_type = CardioCascadeNet.ChooseTypeMatrix().unet_type()
+        self.kernel_size = CardioCascadeNet.ChooseKernelSize().kernel_size(self.unet_type)
 
     @property
     def choose_model(self):
@@ -190,21 +188,6 @@ class ValidationRun(CardioCascadeNet.MetaParameters):
             neural_model.load_state_dict(checkpoint['weights'])
           
         return neural_model
-
-    @property
-    def choose_kernel_sz(self):
-        if self.UNET2 is False and self.UNET3 is False:
-            kernel_sz = self.KERNEL
-        elif self.UNET2 is True and self.UNET3 is False:
-            kernel_sz = self.CROPP_KERNEL 
-        elif self.UNET3 is True and self.UNET4 is False:
-            kernel_sz = self.CROPP_KERNEL 
-        elif self.UNET4 is True and self.UNET5 is False:
-            kernel_sz = self.CROPP_KERNEL 
-        elif self.UNET5 is True:
-            kernel_sz = self.CROPP_KERNEL 
-
-        return kernel_sz
 
     def show_dict_class_stats(self, dict_class_stats):
         for key in range(1, self.NUM_CLASS):
@@ -238,7 +221,7 @@ class ValidationRun(CardioCascadeNet.MetaParameters):
         for subject in test_list:
             test_loader = self.pltres.data_loader([subject], False)
 
-            print(f'Test size: {len(test_list)}')
+            # print(f'Test size: {len(test_list)}')
 
             show_predicted_masks = CardioCascadeNet.MaskPrediction().prediction_masks(self.neural_model, test_loader)
             self.pltres.show_predicted(show_predicted_masks)
@@ -276,11 +259,6 @@ class ValidationRun(CardioCascadeNet.MetaParameters):
 
         f, ax = plt.subplots(figsize = (10, 5))
 
-        # ax = pt.RainCloud(
-        #     x = 'Tissues', y = 'DSC', data = df,
-        #     pointplot = True, width_viol = .8, width_box = .8, linewidth = 1, alpha = 0.8, bw = 0.1, scale = "area", orient = 'h', move = .0,
-        # )
-
         ax = pt.RainCloud(
             x = 'Структура', y = 'Метрика DSC', data = df,
             pointplot = False, width_viol = 0.8, width_box = 0.8, linewidth = 1, alpha = 0.8, bw = 0.1, scale = "area", orient = 'h', move = 0.0,
@@ -296,7 +274,7 @@ class ValidationRun(CardioCascadeNet.MetaParameters):
         try:
             test_list = self.jsnlst.load_dataset_list('test_list')
             dict_class_stats = self.pltres.stats_per_subject(self.neural_model, test_list)
-            # self.rain_cloud(dict_class_stats)
+            self.rain_cloud(dict_class_stats)
 
         except ValueError:
             print(f'Subjects has no suitable images !!!!')
@@ -311,7 +289,3 @@ class ValidationRun(CardioCascadeNet.MetaParameters):
         except ValueError:
             print(f'Subjects has no suitable images !!!!')
 
-
-
-if __name__ == "__main__":
-    ValidationRun().validation_run()

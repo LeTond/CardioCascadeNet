@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.5
-Date: 08-08-2025
+Version: 1.6
+Date: 10-02-2026
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -20,7 +20,7 @@ from torch import nn
 from scipy import ndimage
 from matplotlib import pylab as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from skimage.transform import resize, rescale           #pip install scikit-image
+from skimage.transform import resize, rescale
 from skimage.transform import resize, rescale, downscale_local_mean
 
 import CardioCascadeNet
@@ -32,6 +32,7 @@ class PredictListImages(CardioCascadeNet.MetaParameters):
         super(CardioCascadeNet.MetaParameters, self).__init__()
         self.file_path = file_path
         self.dataset_path = dataset_path
+
         self.def_coord = None
         self.__unet_type = unet_type
         self.__mask_type = mask_type
@@ -56,8 +57,8 @@ class PredictListImages(CardioCascadeNet.MetaParameters):
             templates = CardioCascadeNet.ReadImages(f"{self.NEW_UNET3_MASKS_PATH}{self.file_path.split('/')[-1]}").view_matrix
 
         if masks is not None:
-            ##Case we are necessary in ETALON cropping
             ###########################################################################
+            ##Case we are necessary in ETALON cropping
             # masks = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_path.split('/')[-1]}").view_matrix
             ###########################################################################
 
@@ -225,31 +226,6 @@ class PredictionMask(CardioCascadeNet.MetaParameters):
             image = self.images[slc]
             template = self.templates[slc]
             
-            ########################################################################
-            # image, unfold_shape = self.patch_unfolder(image)
-            # template, unfold_shape_02 = self.patch_unfolder(template)
-
-            # image = np.array(image, dtype = np.float32)
-            # template = np.array(template, dtype = np.float32)
-            # shp = image.shape
-
-            # image = np.array([image, template], dtype = np.float32)[:, :, :, :]
-            # image = image.transpose(1, 0, 2, 3)
-
-            # new_images = np.zeros((shp[0], 1, shp[1], shp[2]))
-            
-            # for i in range(shp[0]):
-            #     img = image[i, :, :, :]
-            #     new_images[i, :, :, :] = self.predict(img)[0]
-
-            # predict = self.patch_folder(new_images, unfold_shape)
-
-            # predict = np.reshape(predict, (self.kernel_size, self.kernel_size))
-            # predict = np.array(predict, dtype = np.float32)
-            ########################################################################
-
-            # if not patch_maker
-            ########################################################################
             image = np.array([image, template], dtype = np.float32)[:, :, :, 0]
         
             predict, image = self.predict(image)
@@ -259,7 +235,6 @@ class PredictionMask(CardioCascadeNet.MetaParameters):
             template = np.reshape(template, (self.kernel_size, self.kernel_size))
             template = np.array(template, dtype = np.float32)
 
-            ########################################################################
             predict = self.threshhold_lv_level(predict)
             predict = self.threshhold_scar(predict)
             predict = self.expand_matrix(predict, self.image_shp[0], self.image_shp[1])
@@ -292,7 +267,6 @@ class PredictionMask(CardioCascadeNet.MetaParameters):
         try:
 
             if self.unet_type == 'close_cropp' or self.unet_type == 'cropp':
-            # if self.DICT_CLASS[2] == 'MYO' and self.DICT_CLASS[3] == 'FIB':
                 pred_fib = predict[predict == 3]            
                 pred_myo = predict[predict == 2]
                 pred_lv = predict[predict == 1]
@@ -409,12 +383,7 @@ class DicomSaver(CardioCascadeNet.MetaParameters):
             new_dicom_array = new_dicom_array / 4095 * 255
             new_dicom_array = new_dicom_array.astype(np.uint8)
 
-            # mask = self.masks_list[:, :, 0].astype(np.float16)
             mask = self.masks_list.astype(np.float16)
-            
-            # new_dicom_array[:, :, 2][mask == 1] += 100
-            # new_dicom_array[:, :, 2][mask == 2] -= 150
-            # new_dicom_array[:, :, 1][mask == 3] -= 220
 
             new_dicom_array[:, :, 0][mask == 1] = 51
             new_dicom_array[:, :, 1][mask == 1] = 51
@@ -498,10 +467,7 @@ class DicomSaver(CardioCascadeNet.MetaParameters):
             mask = np.expand_dims(mask, -2)
 
             for slc in range(mask.shape[3]):
-                masks = mask[:,:,0,slc]
-                # new_dicom_array[:, :, 2, slc][masks == 1] = 220
-                # new_dicom_array[:, :, 1, slc][masks == 2] = 150
-                # new_dicom_array[:, :, 2, slc][masks == 3] = 100
+                masks = mask[:, :, 0, slc]
 
                 new_dicom_array[:, :, 0, slc][masks == 1] = 51
                 new_dicom_array[:, :, 1, slc][masks == 1] = 51
@@ -521,14 +487,12 @@ class DicomSaver(CardioCascadeNet.MetaParameters):
 
     def new_dicom_array_3d(self):
         dcm2 = self.old_dicom().pixel_array
-        # dcm2 = dcm2.transpose(2, 1, 0)
 
         new_dicom_array = np.zeros((dcm2.shape[0], dcm2.shape[1], 3, dcm2.shape[2]))
 
         for slc in range(dcm2.shape[2]):
             new_dicom_array[:, :, :, slc] = cv2.cvtColor(dcm2[:, :, slc], cv2.COLOR_GRAY2RGB)
 
-        # new_dicom_array = cv2.cvtColor(dcm2, cv2.COLOR_GRAY2RGB)
         new_dicom_array = new_dicom_array / 4095 * 255
         new_dicom_array = new_dicom_array.astype(np.uint8)
         mask = self.masks_list[:, :, :].astype(np.float16)
@@ -607,22 +571,30 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
         self.dataset_path = dataset_path
         self.inference_directory = inference_directory
         self.file_name = file_path.split('/')[-1]
-        
+
         self.images_list = CardioCascadeNet.ReadImages(f"{self.dataset_path}{self.file_name}").view_matrix
         self.fibmasks_list = CardioCascadeNet.ReadImages(f"{self.NEW_UNET2_MASKS_PATH}{self.file_name}").view_matrix
-        
+
         self.images_list = self.images_list.transpose(2, 0, 1)
         self.fibmasks_list = self.fibmasks_list.transpose(2, 0, 1)
+
+        try:
+            self.manual_fibmasks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix
+            self.manual_fibmasks_list = self.manual_fibmasks_list.transpose(2, 0, 1)
         
+        except Exception as e:
+            print(f"ERROR {e} while loading manual_fibmasks")
+
         if self.UNET4 and self.UNET5:
             try:
                 self.bullmasks_list = CardioCascadeNet.ReadImages(f"{self.inference_directory}/{self.file_name}").view_matrix
-                self.manual_bullmasks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}_bullmasks/{self.file_name}").view_matrix        
-                self.manual_fibmasks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{self.file_name}").view_matrix        
+                self.manual_bullmasks_list = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}_bullmasks/{self.file_name}").view_matrix
             
                 self.bullmasks_list = self.bullmasks_list.transpose(2, 0, 1)        
-                self.manual_fibmasks_list = self.manual_fibmasks_list.transpose(2, 0, 1)
                 self.manual_bullmasks_list = self.manual_bullmasks_list.transpose(2, 0, 1)
+
+                self.path_to_fibmask = f"{self.NEW_UNET2_MASKS_PATH}/{self.file_name}"
+                self.path_to_bullmask = f"{self.NEW_UNET5_MASKS_PATH}/{self.file_name}"
 
             except Exception as e:
                 print(f"ERROR {e} while loading bullmasks")
@@ -694,7 +666,7 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
 
                     ax.annotate(f'{clss}', 
                                 xy = (weight_mass_x, weight_mass_y), 
-                                fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y + 5), 
+                                fontsize = 4, xytext = (weight_mass_x + 5, weight_mass_y + 5), 
                                 arrowprops = self.arrowprops,
                                 bbox = self.bbox, 
                                 color = 'black')
@@ -715,7 +687,7 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
 
                     ax.annotate(f'S{clss}', 
                                 xy = (weight_mass_x, weight_mass_y), 
-                                fontsize = 6, xytext = (weight_mass_x + 5, weight_mass_y - 5), 
+                                fontsize = 4, xytext = (weight_mass_x + 5, weight_mass_y - 5), 
                                 #  arrowprops = dict(facecolor = 'red'),
                                 arrowprops = self.arrowprops,
                                 bbox = self.bbox, 
@@ -751,7 +723,6 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
 
     def write_class_volume(self, report_title, page = None, slc = None, class_volume = None):
         for key in range(1, self.NUM_CLASS):
-            
             if page != None and slc != None:
                 chunk_volume = round(class_volume[f"Chunk_{self.DICT_CLASS[key]}"][page][slc] / 1000, 2)
 
@@ -794,10 +765,17 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
         chunk_list_images = list(self.divide_chunks(self.images_list, self.rows))
         chunk_list_fibmasks = list(self.divide_chunks(self.fibmasks_list, self.rows))
 
-        if self.UNET4 and self.UNET5: 
-            chunk_list_bullmasks = list(self.divide_chunks(self.bullmasks_list, self.rows))
+        try:
             chunk_list_manual_fibmasks = list(self.divide_chunks(self.manual_fibmasks_list, self.rows))
-            chunk_list_manual_bullmasks = list(self.divide_chunks(self.manual_bullmasks_list, self.rows))
+        except Exception as e:
+            print(f"ERROR {e} while loading chunk_list_manual_fibmasks")   
+
+        if self.UNET4 and self.UNET5:
+            try: 
+                chunk_list_bullmasks = list(self.divide_chunks(self.bullmasks_list, self.rows))
+                chunk_list_manual_bullmasks = list(self.divide_chunks(self.manual_bullmasks_list, self.rows))
+            except Exception as e:
+                print(f"ERROR {e} while loading chunk_list_bullmasks")   
 
         for key in range(1, self.NUM_CLASS): 
             volume_dict_class[f'Chunk_{self.DICT_CLASS[key]}'] = list(self.divide_chunks(volume_dict_class[f'Volume_{self.DICT_CLASS[key]}'], self.rows))
@@ -809,10 +787,14 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
             images = chunk_list_images[page]
             fibmasks = chunk_list_fibmasks[page]
             
+            try:
+                manual_fibmasks = chunk_list_manual_fibmasks[page]
+            except Exception as e:
+                print(f"ERROR {e} while loading manual_fibmasks chunk")     
+
             if self.UNET4 and self.UNET5:
                 try:
                     bullmasks = chunk_list_bullmasks[page]
-                    manual_fibmasks = chunk_list_manual_fibmasks[page]
                     manual_bullmasks = chunk_list_manual_bullmasks[page]
                 except Exception as e:
                     print(f"ERROR {e} while loading bullmasks")
@@ -829,36 +811,53 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
             else:
                 figure, ax = plt.subplots(nrows = num_images, ncols = 2, figsize = (10, 10))
 
-            colormap = plt.get_cmap('viridis')  # 'plasma' or 'viridis'
+            colormap = plt.get_cmap('viridis')
             colormap.set_under('k', alpha = .5)
 
+
+            ## preprocess_matrix ##
             for slc in range(images_on_page):                    
                 image_slc = self.preprocess_matrix(images[slc])
                 fibmask_slc  = self.preprocess_matrix(fibmasks[slc])
 
+                try:
+                    manual_fibmask_slc = self.preprocess_matrix(manual_fibmasks[slc])
+                except Exception as e:
+                    print(f"ERROR {e} while loading manual_fibmask_slc")                
+
                 if self.UNET4 and self.UNET5: 
                     try:
                         bullmask_slc = self.preprocess_matrix(bullmasks[slc])
-                        manual_fibmask_slc = self.preprocess_matrix(manual_fibmasks[slc])
                         manual_bullmask_slc = self.preprocess_matrix(manual_bullmasks[slc])
                     except Exception as e:
                         print(f"ERROR {e} while loading bullmasks")
+                
+
+                ## add_annotate_class ##
+                try:
+                    ax[slc, 0], manual_fibmask_slc = self.add_annotate_class(slc, ax[slc, 0], manual_fibmask_slc)
+                except Exception as e:
+                    print(f"ERROR {e} while loading bullmask and manual_fibmask_slc")
 
                 ax[slc, 1], fibmask_slc = self.add_annotate_class(slc, ax[slc, 1], fibmask_slc)
-                
+
                 if self.UNET4 and self.UNET5:
                     try:
-                        ax[slc, 0], manual_fibmask_slc = self.add_annotate_class(slc, ax[slc, 0], manual_fibmask_slc)
                         ax[slc, 2], bullmask_slc = self.add_annotate_class(slc, ax[slc, 2], bullmask_slc)
                         ax[slc, 3], manual_bullmask_slc = self.add_annotate_class(slc, ax[slc, 3], manual_bullmask_slc)
 
                         bullmask_slc = self.change_17seg_classes(bullmask_slc)
                         manual_bullmask_slc = self.change_17seg_classes(manual_bullmask_slc)
                     except Exception as e:
-                        print(f"ERROR {e} while loading bullmask and manual_fibmask")
+                        print(f"ERROR {e} while loading bullmask and manual_bullmask")
 
+                report_title = ''
+                report_title = self.threshold_scar(report_title, page, slc, volume_dict_class)
+                # report_title = self.write_class_volume(report_title, page, slc, volume_dict_class)
+
+                ## imshow ##
                 ax[slc, 0].imshow(image_slc, plt.get_cmap('gray'))
-
+                
                 try:
                     ax[slc, 0].imshow(manual_fibmask_slc, alpha = 0.2, interpolation = None, cmap = colormap,  vmin = 0.5)
                     ax[slc, 0].contour(manual_fibmask_slc, alpha = 0.9, cmap = colormap,  vmin = 0.5)
@@ -869,8 +868,8 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
                 ax[slc, 1].imshow(image_slc, plt.get_cmap('gray'))
                 ax[slc, 1].imshow(fibmask_slc, alpha = 0.5, interpolation = None, cmap = colormap,  vmin = 0.5)
                 ax[slc, 1].contour(fibmask_slc, alpha = 0.5)
+                ax[slc, 1].text(5, 10, report_title, bbox = {'facecolor': 'white', 'pad': 2}, size = 10)
                 ax[slc, 1].set_title('fib_mask')
-
 
                 if self.UNET4 and self.UNET5: 
                     try:
@@ -886,18 +885,20 @@ class PdfSaver(CardioCascadeNet.MetaParameters):
                     except Exception as e:
                         print(f"ERROR {e} while loading bull_mask and manual_bull_mask")
 
-                report_title = ''
-                report_title = self.threshold_scar(report_title, page, slc, volume_dict_class)
-                # report_title = self.write_class_volume(report_title, page, slc, volume_dict_class)
-
-                ax[slc, 1].set_title(report_title, fontsize = 8, fontweight = 'bold', loc = 'right')
-
                 figure.tight_layout()
+
             pp.savefig(figure)
 
         report_title = ''
         report_title = self.threshold_scar(report_title, None, None, volume_dict_class)
         # report_title = self.write_class_volume(report_title, None, None, volume_dict_class)
+
+        if self.UNET4 and self.UNET5:
+            try:
+                report_title = CardioCascadeNet.CountRelVolume(self.path_to_fibmask, self.path_to_bullmask).get_text()
+
+            except Exception as e:
+                print(f"ERROR {e} while loading bullmasks")
 
         fig = plt.figure(figsize = (8, 8))
         text = fig.text(0.2, 0.7, report_title, ha = 'left', va = 'top', size = 14)

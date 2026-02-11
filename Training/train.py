@@ -1,12 +1,11 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.4
-Date: 04-05-2025
+Version: 1.6
+Date: 10-02-2026
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
-
 
 import time
 import torch
@@ -15,14 +14,14 @@ import torch
 import CardioCascadeNet
 
 
-
 class TrainNetwork(CardioCascadeNet.MetaParameters):
     def __init__(self, model, optimizer, loss_function, scheduler_gen, train_loader, valid_loader):         
         super(CardioCascadeNet.MetaParameters, self).__init__()
         self.ds = CardioCascadeNet.DiceLoss()
         self.fdwr = CardioCascadeNet.FileDirectoryWorker()
-        self.device = CardioCascadeNet.device
+        self.model_key = CardioCascadeNet.ChooseModelConfig().model_key()
 
+        self.device = CardioCascadeNet.device
         self.model = model
         self.optimizer = optimizer
         self.loss_function = loss_function
@@ -30,23 +29,6 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
         self.valid_loader = valid_loader
         self.scheduler_gen = scheduler_gen
         self.print_model_key
-
-    @property  
-    def choose_model_key(self):
-        if self.UNET5 is True:
-            return self.UNET5_FOLD
-        elif self.UNET4 is True and self.UNET5 is False:
-            return self.UNET4_FOLD    
-        elif self.UNET3 is True and self.UNET4 is False:
-            return self.UNET3_FOLD
-        elif self.UNET2 is True and self.UNET3 is False:
-            return self.UNET2_FOLD
-        elif self.UNET1 is True and self.UNET2 is False:
-            return self.UNET1_FOLD
-
-    @property
-    def model_key(self):
-        return self.choose_model_key
 
     @property
     def print_model_key(self):
@@ -107,28 +89,14 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
                 predict = torch.argmax(predict, dim = 1)
                 labels = torch.argmax(labels, dim = 1)
                 
-                # train_loss_02 = 0
-                
-                # for key in range(1, self.NUM_CLASS):
-                #     predict_ = (predict == key)
-                #     labels_ = (labels == key)
-                #     train_loss_02 += (1 - float(self.ds(predict_, labels_)) * self.CE_WEIGHTS[key])
-
-                # train_loss = train_loss_01 + train_loss_02
-                
                 self.optimizer.zero_grad()
                 train_loss.backward()
                 self.optimizer.step()
 
-            # with warmup_scheduler.dampening():
-                # self.scheduler_gen.step()
-            self.scheduler_gen.step() #g_mean_train_loss,  g_mean_valid_loss
+            self.scheduler_gen.step()
             
             training = self.get_metrics(self.train_loader)
             validating = self.get_metrics(self.valid_loader)
-
-            # val_loss = validating[0]
-            # self.scheduler_gen.step(val_loss)
             
             current_results += f'EPOCH: {epoch}\n'
             current_results += f'TRAIN: Loss = {round(training[0], 3)}'
@@ -166,12 +134,8 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
                 except:
                     checkpoint = {f'Net_{self.DATASET_NAME}_{self.model_key}': {'Model': self.model, 'weights': self.model.state_dict()}}
  
-                torch.save(
-                    checkpoint,
-                    f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
-
+                torch.save(checkpoint, f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
                 print(f'{self.DATASET_NAME}_model.pth - epoch {epoch} saved!')
-
             print(current_results)
 
             time_end_epoch = time.time()
@@ -196,6 +160,6 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
         f'SCAR_CE_WEIGHTS: {self.SCAR_CE_WEIGHTS}, \nMYOLEVEL_CE_WEIGHTS: {self.MYOLEVEL_CE_WEIGHTS}, \n' \
         f'BULLEYE_CE_WEIGHTS: {self.BULLEYE_CE_WEIGHTS} \n\nBEST_RESULTS: {best_results}\n\n' \
 
-        self.fdwr.log_stats(project_name = f'{self.PROJ_NAME}_hyperparams', results = hyperparams)
+        self.fdwr.log_stats(project_name = f'{self.PROJ_NAME}/{self.PROJ_NAME}_hyperparams', results = hyperparams)
 
 

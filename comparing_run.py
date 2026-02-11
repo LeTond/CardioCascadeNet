@@ -1,8 +1,8 @@
  # -*- coding: utf-8 -*-
 """
 Name: Anatoliy Levchuk
-Version: 1.4
-Date: 04-05-2025
+Version: 1.6
+Date: 10-02-2026
 Email: feuerlag999@yandex.ru
 GitHub: https://github.com/LeTond
 """
@@ -23,15 +23,12 @@ class Statistics(CardioCascadeNet.MetaParameters):
 			summ_stat_value, summ_stat_value_pslc = [], []
 
 			for sbjct in self.__subjects_list:	
-				cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'{self.NEW_UNET2_MASKS_PATH}{sbjct}', clss)
-				
-				# cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'./Dataset/Almaz_masks_Max/{sbjct}', clss)
-				# cm = CardioCascadeNet.CompareMatrix(f'./Dataset/Almaz_masks_Max/{sbjct}', f'{self.NEW_UNET3_MASKS_PATH}{sbjct}', clss)
-				
-				# cm = CardioCascadeNet.CompareBullsEyeMatrix(f'{self.DATASET_DIR}{self.DATASET_NAME}_mask_bullmasks/{sbjct}', f'{self.NEW_UNET5_MASKS_PATH}{sbjct}', clss)
+				if self.UNET5 is False:
+					cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'{self.NEW_UNET3_MASKS_PATH}{sbjct}', clss)
+				else:
+					cm = CardioCascadeNet.CompareBullsEyeMatrix(f'{self.MASKS_DIR}_bullmasks/{sbjct}', f'{self.NEW_UNET5_MASKS_PATH}{sbjct}', clss)
+
 				summ_stat_value.append(cm.stat_value(function))
-				
-				# print(cm)
 				
 				for stvl2d in cm.stat_value_2d(function):
 					summ_stat_value_pslc.append(stvl2d)
@@ -58,10 +55,4 @@ class ComparingRun():
 		stats.get_stat_value('dice')
 		stats.get_stat_value('precision')
 		stats.get_stat_value('recall')
-
-
-
-if __name__ == '__main__':	
-	ComparingRun().comparing_run()
-
 
