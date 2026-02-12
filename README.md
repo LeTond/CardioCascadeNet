@@ -1,4 +1,4 @@
-# CardioCascadeUnet v1.5: 
+# CardioCascadeUnet v1.6: 
 
 ### The CardioCascadeUnet framework is designed for training and inferencing of the cascade architecture based on the AttentionU-Net model for the tasks of segmenting and localizing myocardial scar tissue in LGE (late gadolinium enhanced) magnetic resonance images of the heart
 
@@ -126,22 +126,28 @@ Data directories should have a similar structure:
 	|   ├── CardioCascadeNet
 	|   ├── Dataset
 	|   |   ├── PROJ_NAME_images
-	|   |   |   ├── image_01.nii
-	|   |   |   └── image_02.nii
-	|   |   |   ├── image_03.nii
-	|   |   |   └── image_04.nii
+	|   |   |   ├── subname_01.nii.gz
+	|   |   |   └── subname_02.nii.gz
+	|   |   |   ├── subname_03.nii.gz
+	|   |   |   └── subname_04.nii.gz
 	|	|   |
 	|   |   ├── PROJ_NAME_masks
-	|   |   |   ├── mask_01.nii
-	|   |   |   └── mask_02.nii
-	|   |   |   ├── mask_03.nii
-	|   |   |   └── mask_04.nii
+	|   |   |   ├── subname_01.nii.gz
+	|   |   |   └── subname_02.nii.gz
+	|   |   |   ├── subname_03.nii.gz
+	|   |   |   └── subname_04.nii.gz
+	|	|   |
+	|	|   ├── PROJ_NAME_masks_bullmasks
+	|   |   |   ├── subname_01.nii.gz
+	|   |   |   └── subname_02.nii.gz
+	|   |   |   ├── subname_03.nii.gz
+	|   |   |   └── subname_04.nii.gz
 	|	|   |
 	|   |   ├── PROJ_NAME_images_new
-	|   |   |   ├── mask_05.nii
-	|   |   |   └── mask_06.nii
-	|   |   |   ├── mask_07.nii
-	|   |   |   └── mask_08.nii
+	|   |   |   ├── new_subname_01.nii.gz
+	|   |   |   └── new_subname_02.nii.gz
+	|   |   |   ├── new_subname_03.nii.gz
+	|   |   |   └── new_subname_04.nii.gz
 	|	|   |
 	|   ├── Results
 	|   |   ├── PROJ_NAME_Unet1_masks_new
@@ -153,7 +159,7 @@ Data directories should have a similar structure:
  
 ### Training:
 
-
+	CardioCascadeNet.TrainRun().train_run()
 
 
 
