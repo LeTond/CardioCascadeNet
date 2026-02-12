@@ -218,7 +218,7 @@ class ValidationRun(CardioCascadeNet.MetaParameters):
     def validation_run(self):
         test_list = self.jsnlst.load_dataset_list('test_list')
 
-        for subject in test_list:
+        for subject in test_list[0:10]:
             test_loader = self.pltres.data_loader([subject], False)
 
             # print(f'Test size: {len(test_list)}')

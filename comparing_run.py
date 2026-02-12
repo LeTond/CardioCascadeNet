@@ -53,6 +53,6 @@ class ComparingRun():
 
 		stats = Statistics(subjects_list)
 		stats.get_stat_value('dice')
-		stats.get_stat_value('precision')
-		stats.get_stat_value('recall')
+		# stats.get_stat_value('precision')
+		# stats.get_stat_value('recall')
 

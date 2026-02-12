@@ -160,6 +160,6 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
         f'SCAR_CE_WEIGHTS: {self.SCAR_CE_WEIGHTS}, \nMYOLEVEL_CE_WEIGHTS: {self.MYOLEVEL_CE_WEIGHTS}, \n' \
         f'BULLEYE_CE_WEIGHTS: {self.BULLEYE_CE_WEIGHTS} \n\nBEST_RESULTS: {best_results}\n\n' \
 
-        self.fdwr.log_stats(project_name = f'{self.PROJ_NAME}/{self.PROJ_NAME}_hyperparams', results = hyperparams)
+        self.fdwr.log_stats(project_name = f'{self.PROJ_NAME}/{self.DATASET_NAME}_hyperparams', results = hyperparams)
 
 

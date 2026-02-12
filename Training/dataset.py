@@ -64,7 +64,6 @@ class GetData(CardioCascadeNet.MetaParameters):
                                 }
                             )
 
-
         return diction
 
     def check_mask(self, mask, sub_name, slc):

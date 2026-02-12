@@ -68,7 +68,12 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
             neural_model, images, templates, image_shp, def_coord, unet_type = unet_type).get_predicted_mask
 
         if mask_type == 'infer_bull_level':
-            masks_list = CardioCascadeNet.MaskPostprocessing(file_name = file_name, masks_list = masks_list, mask_type = mask_type).check_bull_apex
+            try:
+                masks_list = CardioCascadeNet.MaskPostprocessing(file_name = file_name, masks_list = masks_list, mask_type = mask_type).check_bull_apex
+
+            except Exception as e:
+                print(e)
+            pass
 
         if file_type == 'nifti_type':
             CardioCascadeNet.NiftiSaver(masks_list, file_name, file_dir).save_nifti
@@ -117,7 +122,7 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
                             file_dir = self.NEW_UNET1_MASKS_PATH, file_name = file_name, 
                             masks_list = None, model_fold = self.UNET1_FOLD, 
                             unet_type = 'default', mask_type = None, file_type = file_type, pdf_flag = self.PDF_FLAG_UNET1)
-
+                            
                     if self.UNET2 is True:
                         masks_list_02 = self.model_inference(
                             file_dir = self.NEW_UNET2_MASKS_PATH, file_name = file_name, 

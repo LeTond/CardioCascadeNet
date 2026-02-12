@@ -358,19 +358,15 @@ class MaskPreprocessing(CardioCascadeNet.MetaParameters):
         for basal in range(1, 7):
             if (mask == basal).any():
                 template[template == 40] = 1
-                # template[template != 40] = 1    #VALID batch
         for medial in range(7, 13):
             if (mask == medial).any():
                 template[template == 40] = 2
-                # template[template != 40] = 2    #VALID batch
         for apical in range(13, 17): 
             if (mask == apical).any():
                 template[template == 40] = 3
-                # template[template != 40] = 3    #VALID batch
         for apex in range(17, 18):
             if (mask == apex).any():
                 template[template == 40] = 4
-                # template[template != 40] = 4    #VALID batch
 
         template[template == 60] = 0
         template = template / len(self.MYOLEVEL_DICT_CLASS)
@@ -386,6 +382,7 @@ class MaskPreprocessing(CardioCascadeNet.MetaParameters):
         template[template > 0] = 60
 
         myo_lvl = round(np.max(mask))        
+        
         if self.template[self.template == 1].sum().item() == 0:
             myo_lvl = 4
 

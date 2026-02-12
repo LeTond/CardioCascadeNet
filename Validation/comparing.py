@@ -79,7 +79,7 @@ class CompareMatrix(CardioCascadeNet.MetaParameters):
             # print(f'{self.sub_name()} Slice: {self.length - slc} Dice = {self.dice()}')
             list_dsc.append(self.dice())
 
-        print(f"Sub {self.sub_name()}: {list_dsc}")
+        # print(f"Sub {self.sub_name()}: {list_dsc}")
 
         return list_dsc
 
