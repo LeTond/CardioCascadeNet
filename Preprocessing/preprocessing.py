@@ -11,27 +11,19 @@ GitHub: https://github.com/LeTond
 import os
 import sys
 import cv2
-import time
 import torch
 import random 
-import pickle
-import platform
 import matplotlib
 
 import numpy as np
-import pandas as pd
 import nibabel as nib
 import pydicom as dicom
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
-import torchvision.transforms.functional as TF
 
 from torch import nn
 from scipy import ndimage
 from skimage.transform import resize, rescale, downscale_local_mean
 from scipy.ndimage import rotate as rotate_image
-from torch.utils.data import DataLoader
-from sklearn import preprocessing        #pip install scikit-learn
 
 
 import CardioCascadeNet
@@ -153,7 +145,8 @@ class PreprocessData(CardioCascadeNet.MetaParameters):
 
             if self.mask_type != 'infer_bull_level' and self.mask_type != 'train_bull_level':
                 template = self.clipping(template)
-                template = self.clahe_normalization(template)
+                # template = self.clahe_normalization(template)
+                template = self.z_normalization(template)
 
             template = self.equalization_matrix(matrix = template)
             template = self.rescale_matrix(matrix = template, order = 0)
@@ -173,7 +166,7 @@ class PreprocessData(CardioCascadeNet.MetaParameters):
 
     @staticmethod
     def normalization(image):
-        image = (image - np.min(image)) / (np.max(image) - np.min(image))
+        # image = (image - np.min(image)) / (np.max(image) - np.min(image))
         
         return image / np.max(image)
 
@@ -392,6 +385,93 @@ class MaskPreprocessing(CardioCascadeNet.MetaParameters):
         template = template / len(self.MYOLEVEL_DICT_CLASS)
 
         return self.image, self.mask, template
+
+
+class PreprocessLossWeights(CardioCascadeNet.MetaParameters):
+    def __init__(self, sub_names: list):
+        super().__init__()
+
+        self.__sub_names = sub_names
+        self.kernel_size = CardioCascadeNet.ChooseKernelSize().kernel_size(unet_type = None)
+        self.diction = self.create_dict_class
+        self.key_diction = self.count_pathology
+
+    @property
+    def sub_names(self):
+        return self.__sub_names
+
+    @property
+    def create_dict_class(self):
+        dict_class_stats = {}
+  
+        dict_class_stats.update(
+                {
+                    f'{self.DICT_CLASS[key]}' : 
+                        {'Subjects': 0, 'Slices': 0, 'Pixels': 0} for key in range(0, self.NUM_CLASS)
+                }
+            )
+
+        return dict_class_stats
+
+    @property
+    def count_pathology(self):
+        for sub_name in self.sub_names:
+            if sub_name.endswith('.nii.gz'):
+                masks = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{sub_name}").view_matrix
+
+                for key in range(0, self.NUM_CLASS):
+                    if (masks == key).any():
+                        self.diction[f'{self.DICT_CLASS[key]}'].update(
+                            {
+                                'Subjects': self.diction[f'{self.DICT_CLASS[key]}']['Subjects'] + 1,
+                                'Pixels': self.diction[f'{self.DICT_CLASS[key]}']['Pixels'] + np.sum(masks == key)
+                            }
+                        )
+
+                    for slc in range(masks.shape[2]):
+                        mask_ = masks[:, :, slc].copy()
+
+                        if (mask_ == key).any():
+                            self.diction[f'{self.DICT_CLASS[key]}'].update(
+                                    {
+                                        'Slices': self.diction[f'{self.DICT_CLASS[key]}']['Slices'] + 1
+                                    }
+                                )
+
+        return self.diction
+
+    @property
+    def calculate_loss_weights(self):
+        matrix_pix = self.kernel_size * self.kernel_size
+        weights_list = list([])
+        background_coeff = 1.0
+
+        for key in range(1, self.NUM_CLASS):
+            key_pixels = self.key_diction[f'{self.DICT_CLASS[key]}']['Pixels']
+            background_coeff -= np.round(
+                (
+                    key_pixels / (matrix_pix * self.key_diction[f'{self.DICT_CLASS[key]}']['Slices'])
+                    ), 2
+                )
+
+        weights_list.append(np.round(1 - background_coeff, 2))
+
+        for key in range(1, self.NUM_CLASS):
+            key_pixels = self.key_diction[f'{self.DICT_CLASS[key]}']['Pixels']
+            keys_coeff = \
+                np.round(
+                    (
+                        (
+                            1 - weights_list[0]) - key_pixels / (matrix_pix * self.key_diction[f'{self.DICT_CLASS[0]}']['Slices'])
+                        ), 2
+                    )
+            
+            weights_list.append(keys_coeff)
+
+        return weights_list
+
+    def __str__(self):
+        return f"\nLoss Weights of {self.key_diction} is: {self.calculate_loss_weights}\n"
 
 
 class Augmentation(CardioCascadeNet.MetaParameters):

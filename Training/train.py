@@ -136,6 +136,7 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
  
                 torch.save(checkpoint, f'{self.PROJ_NAME}/{self.DATASET_NAME}_model.pth')
                 print(f'{self.DATASET_NAME}_model.pth - epoch {epoch} saved!')
+            
             print(current_results)
 
             time_end_epoch = time.time()
@@ -155,10 +156,7 @@ class TrainNetwork(CardioCascadeNet.MetaParameters):
         f'CHANNELS: {self.CHANNELS}, LR: {self.LR}, BT_SZ: {self.BT_SZ}, EPOCHS: {self.EPOCHS}, \n' \
         f'DROPOUT: {self.DROPOUT}, FEATURES: {self.FEATURES}, WDC: {self.WDC}, ' \
         f'EARLY_STOPPING: {self.EARLY_STOPPING}, TMAX: {self.TMAX}, CLIP_RATE: {self.CLIP_RATE}, \n' \
-        f'SCAR_DICT_CLASS: {self.SCAR_DICT_CLASS}, \nMYOLEVEL_DICT_CLASS: {self.MYOLEVEL_DICT_CLASS}, \n' \
-        f'BULLEYE_DICT_CLASS: {self.BULLEYE_DICT_CLASS}, \nTARGET_CE_WEIGHTS: {self.TARGET_CE_WEIGHTS}, \n' \
-        f'SCAR_CE_WEIGHTS: {self.SCAR_CE_WEIGHTS}, \nMYOLEVEL_CE_WEIGHTS: {self.MYOLEVEL_CE_WEIGHTS}, \n' \
-        f'BULLEYE_CE_WEIGHTS: {self.BULLEYE_CE_WEIGHTS} \n\nBEST_RESULTS: {best_results}\n\n' \
+        f'SCAR_DICT_CLASS: {self.SCAR_DICT_CLASS}, \n\nBEST_RESULTS: {best_results}\n\n' \
 
         self.fdwr.log_stats(project_name = f'{self.PROJ_NAME}/{self.DATASET_NAME}_hyperparams', results = hyperparams)
 

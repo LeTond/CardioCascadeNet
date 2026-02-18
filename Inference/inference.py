@@ -183,40 +183,6 @@ class PredictionMask(CardioCascadeNet.MetaParameters):
 
         return predict, image
 
-    @staticmethod
-    def patch_unfolder(matrix):
-        matrix = np.expand_dims(matrix, 0)
-        matrix = matrix.transpose(0, 3, 1, 2)
-        matrix = torch.from_numpy(matrix)
-
-        kc, kh, kw = 1, 64, 64  # kernel size
-        dc, dh, dw = 1, 64, 64  # stride
-
-        matrix = matrix.unfold(1, kc, dc).unfold(2, kh, dh).unfold(3, kw, dw)
-        unfold_shape = matrix.size()
-        matrix = matrix.contiguous().view(matrix.size(0), -1, kc, kh, kw)
-
-        matrix = matrix[0, :, 0, :, :]
-
-        return matrix, unfold_shape
-
-    @staticmethod
-    def patch_folder(matrix, unfold_shape):
-        matrix = np.expand_dims(matrix, 0)
-        matrix = np.expand_dims(matrix, 0)
-        matrix = torch.from_numpy(matrix)
-        patches_manual = matrix.view(unfold_shape)
-
-        output_c = unfold_shape[1] * unfold_shape[4]
-        output_h = unfold_shape[2] * unfold_shape[5]
-        output_w = unfold_shape[3] * unfold_shape[6]
-
-        patches_manual = patches_manual.permute(0, 1, 4, 2, 5, 3, 6).contiguous()
-        patches_manual = patches_manual.view(1, output_c, output_h, output_w)
-        predict = patches_manual[0, 0, :, :]
-
-        return predict
-
     @property
     def get_predicted_mask(self):
         mask_list, template_list = [], []
@@ -236,7 +202,6 @@ class PredictionMask(CardioCascadeNet.MetaParameters):
             template = np.array(template, dtype = np.float32)
 
             predict = self.threshhold_lv_level(predict)
-            predict = self.threshhold_scar(predict)
             predict = self.expand_matrix(predict, self.image_shp[0], self.image_shp[1])
             predict = resize(predict, (self.image_shp[0], self.image_shp[1]), anti_aliasing_sigma = False)
 
@@ -260,26 +225,6 @@ class PredictionMask(CardioCascadeNet.MetaParameters):
                     predict[predict != 0] = lv_level
             except:
                 pass
-
-        return predict
-
-    def threshhold_scar(self, predict):
-        try:
-
-            if self.unet_type == 'close_cropp' or self.unet_type == 'cropp':
-                pred_fib = predict[predict == 3]            
-                pred_myo = predict[predict == 2]
-                pred_lv = predict[predict == 1]
-                
-                rel_volume = (pred_fib.sum().item() + 1e-4) / (pred_fib.sum().item() + pred_myo.sum().item() + 1e-4) * 100
-                
-                if rel_volume < 1 and (predict == 3).sum().item() > 0:
-                    predict[predict == 3] = 2
-
-                elif pred_lv.sum().item() / (pred_fib.sum().item() + pred_myo.sum().item() + 1e-4) * 100 < 5:
-                    predict[predict == 1] = 3
-        except:
-            pass
 
         return predict
 

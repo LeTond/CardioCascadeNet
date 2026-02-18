@@ -21,76 +21,24 @@ import CardioCascadeNet
 
 
 class GetData(CardioCascadeNet.MetaParameters):
-    def __init__(self, files = None, augmentation = None):
+    def __init__(self, subject_list = None, augmentation = None):
         super(CardioCascadeNet.MetaParameters, self).__init__()
-        self.files = files
+        self.subject_list = subject_list
         self.augmentation = augmentation
         self.unet_type = CardioCascadeNet.ChooseTypeMatrix().unet_type()
         self.mask_type = CardioCascadeNet.ChooseTypeMatrix().mask_type()
-
-    @property
-    def create_dict_class(self):
-        dict_class_stats = {}
-  
-        dict_class_stats.update(
-                {
-                    f'{self.DICT_CLASS[key]}' : 
-                        {'Subjects': 0, 'Slices': 0, 'Pixels': 0} for key in range(1, self.NUM_CLASS)
-                }
-            )
-
-        return dict_class_stats
-
-    def count_pathology(self, sub_names):
-        diction = self.create_dict_class
-
-        for sub_name in sub_names:
-            if sub_name.endswith('.nii.gz'):
-                masks = CardioCascadeNet.ReadImages(f"{self.MASKS_DIR}/{sub_name}").view_matrix
-
-                for key in range(1, self.NUM_CLASS):
-                    if (masks == key).any():
-                        diction[f'{self.DICT_CLASS[key]}'].update(
-                            {
-                                'Subjects': diction[f'{self.DICT_CLASS[key]}']['Subjects'] + 1,
-                                'Pixels': diction[f'{self.DICT_CLASS[key]}']['Pixels'] + masks[masks == key].sum().item()
-                            }
-                        )
-
-                    for slc in range(masks.shape[2]):
-                        diction[f'{self.DICT_CLASS[key]}'].update(
-                                {
-                                    'Slices': diction[f'{self.DICT_CLASS[key]}']['Slices'] + 1
-                                }
-                            )
-
-        return diction
 
     def check_mask(self, mask, sub_name, slc):
         if self.EMPTY is False and mask[mask > 0].sum().item() == 0:
             # print(f"Subject {sub_name} slice {slc} was passed because EMPY is FALSE")
             return False
+        
         elif (mask > (self.NUM_CLASS - 1)).any():
             # print(f"Subject {sub_name} slice {slc} has class out of range class {self.NUM_CLASS}")
             return False
+        
         else:
             return True
-
-    @staticmethod
-    def patch_unfolder(matrix):
-        matrix = np.expand_dims(matrix, 0)
-        matrix = matrix.transpose(0, 3, 1, 2)
-        matrix = torch.from_numpy(matrix)
-
-        kc, kh, kw = 1, 64, 64  # kernel size
-        dc, dh, dw = 1, 64, 64  # stride
-
-        matrix = matrix.unfold(1, kc, dc).unfold(2, kh, dh).unfold(3, kw, dw)
-        matrix = matrix.contiguous().view(matrix.size(0), -1, kc, kh, kw)
-
-        matrix = matrix[0, :, 0, :, :]
-
-        return matrix
 
     def pool_worker(self, file_name):
         list_images, list_masks, list_templates, list_names = [], [], [], []
@@ -127,7 +75,7 @@ class GetData(CardioCascadeNet.MetaParameters):
                 ##TODO: bug?? with rotation template while UNET5 training???
                 # try:
                 #     image, mask, template = \
-                #     Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d     #bug?? with rotation template while UNET5 training???
+                #     Augmentation(image, mask, template, unet_type = self.unet_type).rotate_2d
                 #     # image, mask, template = \
                 #     # Augmentation(image, mask, template, unet_type = self.unet_type).gauss_noise
                 #     # image, mask, template = \
@@ -153,9 +101,7 @@ class GetData(CardioCascadeNet.MetaParameters):
     def generated_data_list(self):
         list_images, list_masks, list_templates, list_names = [], [], [], []
 
-        # print(self.count_pathology(self.files))
-
-        for subject in self.files:
+        for subject in self.subject_list:
             try:
                 images, masks, templates, sub_names = self.pool_worker(subject)
                 for slc in range(len(images)): 

@@ -24,7 +24,7 @@ class Statistics(CardioCascadeNet.MetaParameters):
 
 			for sbjct in self.__subjects_list:	
 				if self.UNET5 is False:
-					cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'{self.NEW_UNET3_MASKS_PATH}{sbjct}', clss)
+					cm = CardioCascadeNet.CompareMatrix(f'{self.MASKS_DIR}/{sbjct}', f'{self.NEW_UNET2_MASKS_PATH}{sbjct}', clss)
 				else:
 					cm = CardioCascadeNet.CompareBullsEyeMatrix(f'{self.MASKS_DIR}_bullmasks/{sbjct}', f'{self.NEW_UNET5_MASKS_PATH}{sbjct}', clss)
 
