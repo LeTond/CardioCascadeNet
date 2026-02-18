@@ -25,11 +25,6 @@ from CardioCascadeNet.Inference.inference import PredictListImages, PredictionMa
 				DicomSaver, PdfSaver
 
 from CardioCascadeNet.Model.unet2D import UNet_2D, UNet_2D_AttantionLayer
-from CardioCascadeNet.Model.unetResnet import UNetResnet
-from CardioCascadeNet.Model.swinUnet import SwinUNet
-from CardioCascadeNet.Model.segNet import SegNet
-from CardioCascadeNet.Model.R2AttU_Net import R2AttU_Net
-from CardioCascadeNet.Model.resNet import ResNet
 
 from CardioCascadeNet.Validation.validation import DiceLoss, MaskPrediction, TissueMetrics
 from CardioCascadeNet.Validation.comparing import CompareMatrix, CompareBullsEyeMatrix

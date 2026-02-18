@@ -166,7 +166,7 @@ class PreprocessData(CardioCascadeNet.MetaParameters):
 
     @staticmethod
     def normalization(image):
-        # image = (image - np.min(image)) / (np.max(image) - np.min(image))
+        image = (image - np.min(image)) / (np.max(image) - np.min(image))
         
         return image / np.max(image)
 

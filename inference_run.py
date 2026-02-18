@@ -106,9 +106,10 @@ class InferenceRun(CardioCascadeNet.MetaParameters):
         # dataset_list = CardioCascadeNet.ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_images_new/').get_dataset_list()
         # dataset_list = CardioCascadeNet.ReadImages(f'{self.DATASET_DIR}{self.DATASET_NAME}_images_new/').get_file_path_list()
 
-        # jsnlst.pprint('test_list')
+        jsnlst.pprint('test_list')
         # jsnlst.pprint('train_list')
-        print(dataset_list)
+        # print(dataset_list)
+        print('\nINFERENCE RUN\n')
 
         ###########################################################################################################
         ##  Nifti file inference (.nii.gz)
