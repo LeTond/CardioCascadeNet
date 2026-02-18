@@ -168,3 +168,8 @@ Data directories should have a similar structure:
 
 
 
+## References:
+* https://doi.org/10.1016/j.bspc.2025.107555
+* https://doi.org/10.17586/0021-3454-2025-68-11-996-1005
+* https://www.researchgate.net/publication/380945819_Automatic_and_semi-automatic_segmentation_method_of_post-myocardial_infarction_according_to_magnetic_resonance_imaging_with_late_gadolinium_enhancement
+
